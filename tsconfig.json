@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "es6",
+    "module": "commonjs",
+    "outDir": "./public",
+    "strict": true,
+    "noImplicitAny": false,
+    "esModuleInterop": true,
+    "strictNullChecks": false,
+
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+
+    "resolveJsonModule": true
+  }
+}
