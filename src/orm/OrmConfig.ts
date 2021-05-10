@@ -107,4 +107,27 @@ export class OrmConfig
         }
         return null;
     }
+
+    public findDefinitionFromFieldOrId(entityDefinition: OrmEntityDefinition, fieldName)
+    {
+        for(const fn in entityDefinition.ormIds)
+        {
+            if(fn == fieldName)
+            {
+                return entityDefinition;
+            }
+        }
+        for(const fn in entityDefinition.ormFields)
+        {
+            if(fn == fieldName)
+            {
+                return entityDefinition;
+            }
+        }
+        if(entityDefinition.extends)
+        {
+            return this.findDefinitionFromFieldOrId(entityDefinition.extends, fieldName);
+        }
+        return null;
+    }
 }
