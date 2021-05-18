@@ -4,7 +4,10 @@ import { OrmExtends } from "../orm/entity/OrmExtends";
 import { Objekt } from "./Objekt";
 
 @OrmEntity()
-@OrmExtends({ base: Objekt })
+@OrmExtends({
+    base: Objekt,
+    discriminatorValue: 'playlist',
+})
 export class Playlist extends Objekt
 {
     @OrmEntityFieldAsString()

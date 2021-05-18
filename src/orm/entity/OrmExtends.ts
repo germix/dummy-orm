@@ -1,8 +1,13 @@
 import { BgCyan, Reset } from "../../bash";
 import { entityDefinitions } from "../OrmConfig";
 import { OrmException } from "../OrmException";
+import { camelcaseToUnderscore } from "../utils";
 
-export function OrmExtends({base})
+export function OrmExtends({base, discriminatorValue}:
+{
+    base;
+    discriminatorValue? : string;
+})
 {
     return function(target)
     {
@@ -23,6 +28,7 @@ export function OrmExtends({base})
         if(entityDefinitions[entityName].extends === undefined)
         {
             entityDefinitions[entityName].extends = base;
+            entityDefinitions[entityName].discriminatorValue = discriminatorValue || camelcaseToUnderscore(entityName);
         }
         else
         {

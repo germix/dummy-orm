@@ -4,9 +4,15 @@ import { OrmExtends } from "../orm/entity/OrmExtends";
 import { Objekt } from "./Objekt";
 
 @OrmEntity()
-@OrmExtends({ base: Objekt })
+@OrmExtends({
+    base: Objekt,
+    discriminatorValue: 'video',
+})
 export class Video extends Objekt
 {
     @OrmEntityFieldAsString()
     title;
+
+    @OrmEntityFieldAsString()
+    source;
 }

@@ -1,9 +1,13 @@
 import { OrmEntity } from "./OrmEntity";
 
-export function OrmAbstractEntity(params?)
+export function OrmAbstractEntity(params?:
+{
+    discriminatorColumn?: string;
+})
 {
     return OrmEntity({
         ...params||{},
-        isAbstract: true
+        isAbstract: true,
+        discriminatorColumn: params?.discriminatorColumn || 'discriminator',
     });
 }

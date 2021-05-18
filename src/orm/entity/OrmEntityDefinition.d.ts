@@ -40,4 +40,14 @@ export interface OrmEntityDefinition
      * Indicates if the entity is an abstract entity
      */
     isAbstract?;
+
+    /**
+     * Discriminator value
+     */
+     discriminatorValue?;
+    
+    /**
+     * Discriminator column
+     */
+    discriminatorColumn?;
 }

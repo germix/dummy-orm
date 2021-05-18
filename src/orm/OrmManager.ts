@@ -2,7 +2,7 @@ import { BgRed, Reset } from "../bash";
 import { OrmEntityMapper } from "../testing/OrmEntityMapper";
 import { OrmConnection } from "./connection/OrmConnection";
 import { OrmEntityDefinition } from "./entity/OrmEntityDefinition";
-import { OrmConfig } from "./OrmConfig";
+import { entityDefinitions, OrmConfig } from "./OrmConfig";
 import { OrmInsertBuilder } from "./OrmInsertBuilder";
 import { OrmReference } from "./OrmReference";
 import { EntityClass } from "./types";
@@ -252,22 +252,28 @@ export class OrmManager
     private async persistEntity(entity, entityName) : Promise<any>
     {
         let ed: OrmEntityDefinition = this.config.getEntityDefinition(entityName);
+        let baseEd = entityDefinitionToBase(ed);
         let builder = (new OrmInsertBuilder(this.config, ed.tableName));
 
+        function entityDefinitionToBase(ed)
+        {
+            while(ed.extends !== undefined)
+            {
+                ed = ed.extends;
+            }
+            return ed;
+        }
+        if(entity.constructor.name == entityName)
+        {
+            entity[baseEd.discriminatorColumn] = ed.discriminatorValue;
+        }
         if(ed.extends !== undefined)
         {
-            let baseEntity = ed.extends;
-            let baseEntityName = baseEntity.name;
+            await this.persistEntity(entity, ed.extends.name);
 
-            await this.persistEntity(entity, baseEntityName);
-
-            while(baseEntity.extends !== undefined)
+            for(const columnName in baseEd.ormIds)
             {
-                baseEntity = baseEntity.extends;
-            }
-            for(const columnName in baseEntity.ormIds)
-            {
-                this.addInsertColumn(builder, entity, columnName, baseEntity.ormIds[columnName]);
+                this.addInsertColumn(builder, entity, columnName, baseEd.ormIds[columnName]);
             }
         }
 
@@ -280,7 +286,10 @@ export class OrmManager
         {
             this.addInsertColumn(builder, entity, columnName, ids[columnName]);
         }
-        for(const columnName in ed.ormFields) this.addInsertColumn(builder, entity, columnName, ed.ormFields[columnName]);
+        for(const columnName in ed.ormFields)
+        {
+            this.addInsertColumn(builder, entity, columnName, ed.ormFields[columnName]);
+        }
         for(const columnName in ed.ormManyToOne)
         {
             const ent: OrmReference<any> = entity[columnName];

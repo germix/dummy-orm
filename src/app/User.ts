@@ -6,7 +6,10 @@ import { OrmOnPreInsert } from "../orm/entity/OrmOnPreInsert";
 import { Objekt } from "./Objekt";
 
 @OrmEntity()
-@OrmExtends({ base: Objekt })
+@OrmExtends({
+    base: Objekt,
+    discriminatorValue: 'user',
+})
 export class User extends Objekt
 {
     @OrmEntityFieldAsString()

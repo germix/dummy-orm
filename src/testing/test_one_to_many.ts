@@ -22,8 +22,15 @@ export async function test_one_to_many(cfg: OrmConfig)
 
     let mgr = new OrmManager(cfg);
     let cmt = await mgr.findOneBy(Comment, {
-        id: 1,
+        id: 3,
     })
-    console.log(await cmt.user.get())
-    console.log(await cmt.parent.get())
+    if(cmt == null)
+    {
+        console.log('Comment not found');
+    }
+    else
+    {
+        console.log(await cmt.user.get());
+        console.log(await cmt.parent.get());
+    }
 }

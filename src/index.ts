@@ -24,22 +24,26 @@ async function install(cfg: OrmConfig)
     let omgr = new OrmManager(cfg);
 
     let user = new User();
-    user.type = 'user';
     user.username = 'ger';
     user.password = '123';
     await omgr.persistAndFlush(user)
 
     console.log('User id: ' + user.id)
 
+    let video = new Video();
+    video.title = 'Mi video';
+    video.source = 'http://example.com/videos/1';
+    
+    await omgr.persistAndFlush(video)
+
     for(let i = 1; i <= 5; i++)
     {
         let comment = new Comment();
-        comment.type = 'comment';
         comment.message = "message " + i;
         comment.user = new OrmReference(user);
+        comment.parent = new OrmReference(video);
         await omgr.persistAndFlush(comment)
     }
-
 }
 
 async function main()
@@ -52,8 +56,8 @@ async function main()
         entities: [
             Test,
 
-            User,
             Objekt,
+            User,
             Video,
             Comment,
             Playlist,
@@ -74,7 +78,7 @@ async function main()
         ]
     });
 
-    //await install(cfg);
+    await install(cfg);
 
     //test_0(cfg);
     //test_qb(cfg);

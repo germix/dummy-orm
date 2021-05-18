@@ -7,7 +7,10 @@ import { Objekt } from "./Objekt";
 import { User } from "./User";
 
 @OrmEntity()
-@OrmExtends({ base: Objekt })
+@OrmExtends({
+    base: Objekt,
+    discriminatorValue: 'comment',
+})
 export class Comment extends Objekt
 {
     @OrmEntityFieldAsString()

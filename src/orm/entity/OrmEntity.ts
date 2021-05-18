@@ -15,6 +15,7 @@ export function OrmEntity(params?)
             entityDefinitions[entityName] = {};
         }
         entityDefinitions[entityName].isAbstract = params.isAbstract;
+        entityDefinitions[entityName].discriminatorColumn = params.discriminatorColumn;
         entityDefinitions[entityName].name = entityName;
         entityDefinitions[entityName].tableName = camelcaseToUnderscore(entityName);
 
