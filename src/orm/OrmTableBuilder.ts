@@ -4,7 +4,7 @@ export class OrmTableBuilder
 {
     private name;
     private dbname;
-    private allFields = [];
+    private allFields: OrmTableFieldType[] = [];
 
     constructor(dbname)
     {

@@ -44,13 +44,17 @@ export class OrmInsertBuilder
             if(!first)
                 sql += ',';
             first = false;
-            if(value === null)
+            if(value === undefined)
+            {
+                throw `Field value is undefined (field=${key})`;
+            }
+            else if(value === null)
             {
                 sql += 'null';
             }
             else
             {
-                value = value.replace("'", "\'");
+                value = value.toString().replace("'", "\'");
                 sql += `'${value}'`;
             }
         }

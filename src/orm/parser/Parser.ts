@@ -514,7 +514,7 @@ export class Parser
                         // Get ids
                         //
                         let ids = this.config.getEntityIds(ed);
-            
+
                         //
                         // ...
                         //

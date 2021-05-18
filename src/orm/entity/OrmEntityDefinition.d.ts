@@ -22,6 +22,16 @@ export interface OrmEntityDefinition
     ormFields: [];
 
     /**
+     * Entity fields (OneToMany)
+     */
+    ormOneToMany: [];
+
+    /**
+     * Entity fields (ManyToOne)
+     */
+    ormManyToOne: any[];
+
+    /**
      * Entity that extends
      */
     extends;

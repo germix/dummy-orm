@@ -1,6 +1,9 @@
+import { Objekt } from "../../app/Objekt";
 import { OrmAbstractEntity } from "../../orm/entity/OrmAbstractEntity";
 import { OrmEntity } from "../../orm/entity/OrmEntity";
 import { OrmEntityField } from "../../orm/entity/OrmEntityField";
+import { OrmEntityFieldAsManyToOne } from "../../orm/entity/OrmEntityFieldAsManyToOne";
+import { OrmEntityFieldAsOneToMany } from "../../orm/entity/OrmEntityFieldAsOneToMany";
 import { OrmEntityFieldAsString } from "../../orm/entity/OrmEntityFieldAsString";
 import { OrmEntityId } from "../../orm/entity/OrmEntityId";
 import { OrmEntityIdAsIncremental } from "../../orm/entity/OrmEntityIdAsIncremental";
@@ -63,16 +66,6 @@ export class Test
     fieldAsCustomJson;
 }
 
-@OrmAbstractEntity()
-export abstract class Objekt
-{
-    @OrmEntityId()
-    id;
-
-    @OrmEntityFieldAsString()
-    type;
-}
-
 @OrmEntity()
 @OrmExtends({base: Objekt})
 export class Box extends Objekt
@@ -104,29 +97,4 @@ export class Employee extends Person
 {
     @OrmEntityFieldAsString()
     employeeField;
-}
-
-@OrmEntity()
-export class User
-{
-    @OrmEntityIdAsIncremental()
-    id;
-
-    @OrmEntityFieldAsString()
-    username;
-
-    @OrmEntityFieldAsString()
-    password;
-
-    @OrmOnPreInsert()
-    onPreInsert()
-    {
-        console.log('User.onPreInsert()')
-    }
-
-    @OrmOnPostInsert()
-    onPostInsert()
-    {
-        console.log('User.onPreInsert()')
-    }
 }

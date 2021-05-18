@@ -4,6 +4,7 @@ import { OrmConnectionMysql } from "./connection/OrmConnectionMysql";
 import { OrmEntityDefinition } from "./entity/OrmEntityDefinition";
 import { OrmConfigParams } from "./OrmConfigParams";
 import { OrmTableFieldType } from "./types/OrmTableFieldType";
+import isString from "./utils/isString";
 
 export const entityDefinitions = {
 
@@ -91,8 +92,73 @@ export class OrmConfig
         return ed.ormIds;
     }
 
+/*
+    private getEntityIds(entityDefinition: OrmEntityDefinition)
+    {
+        let ids = {};
+
+        //
+        // Ids from extends
+        //
+        if(entityDefinition.extends !== undefined)
+        {
+            let ed = entityDefinition;
+            while(ed.extends !== undefined)
+            {
+                ed = ed.extends;
+            }
+            for(const idName in ed.ormIds)
+            {
+                ids[idName] = ed.ormIds[idName];
+            }
+        }
+
+        //
+        // Ids
+        //
+        for(const idName in entityDefinition.ormIds)
+        {
+            ids[idName] = entityDefinition.ormIds[idName];
+        }
+
+        return ids;
+    }
+*/
+
+    public getEntityFields(ed: OrmEntityDefinition)
+    {
+        let fields = {};
+        while(ed !== undefined)
+        {
+            fields = {
+                ...fields,
+                ...ed.ormFields,
+            }
+            ed = ed.extends;
+        }
+        return fields;
+    }
+
+    public getEntityManyToOneFields(ed: OrmEntityDefinition)
+    {
+        let fields = {};
+        while(ed !== undefined)
+        {
+            fields = {
+                ...fields,
+                ...ed.ormManyToOne,
+            }
+            ed = ed.extends;
+        }
+        return fields;
+    }
+
     public getEntityDefinition(entityName) : OrmEntityDefinition
     {
+        if(!isString(entityName))
+        {
+            entityName = entityName.name;
+        }
         return entityDefinitions[entityName];
     }
 
@@ -129,5 +195,14 @@ export class OrmConfig
             return this.findDefinitionFromFieldOrId(entityDefinition.extends, fieldName);
         }
         return null;
+    }
+
+    public findClass(entityClass)
+    {
+        let e = this.entities.find((e) =>
+        {
+            return e.name == entityClass;
+        })
+        return e;
     }
 }

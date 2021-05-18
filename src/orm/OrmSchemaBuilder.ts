@@ -2,7 +2,9 @@ import { OrmEntityDefinition } from "./entity/OrmEntityDefinition";
 import { OrmConfig } from "./OrmConfig";
 import { OrmException } from "./OrmException";
 import { OrmTableBuilder } from "./OrmTableBuilder";
+import { camelcaseToUnderscore, makeReferenceFieldId } from "./utils";
 import { FieldType } from "./types";
+import { OrmTableFieldType } from "./types/OrmTableFieldType";
 import { OrmTableFieldTypeBigInt } from "./types/OrmTableFieldTypeBigInt";
 import { OrmTableFieldTypeBoolean } from "./types/OrmTableFieldTypeBoolean";
 import { OrmTableFieldTypeDate } from "./types/OrmTableFieldTypeDate";
@@ -34,7 +36,7 @@ export class OrmSchemaBuilder
         {
             this.config.con.query(`DROP DATABASE IF EXISTS \`${this.config.dbname}\``, () =>
             {
-                done();
+                done(undefined);
             });
         });
     }
@@ -45,7 +47,7 @@ export class OrmSchemaBuilder
         {
             this.config.con.query(`CREATE DATABASE \`${this.config.dbname}\``, () =>
             {
-                done();
+                done(undefined);
             });
         })
         .then(() =>
@@ -55,15 +57,14 @@ export class OrmSchemaBuilder
                 for await(const entity of this.config.entities)
                 {
                     let entityName = entity.name;
-                    console.log('entityName: ' + entityName)
                     let ed = this.config.getEntityDefinition(entityName);
                     let builder = new OrmTableBuilder(this.config.dbname);
-        
+
                     //
                     // Table name
                     //
                     builder.setName(ed.tableName);
-        
+
                     //
                     // Extends
                     //
@@ -92,16 +93,16 @@ export class OrmSchemaBuilder
                     {
                         this.config.con.query(builder.toSqlString(), () =>
                         {
-                            done();
+                            done(undefined);
                         });
                     });
                 }
-                done();
+                done(undefined);
             })
         })
     }
 
-    private getTableField(name, data)
+    private getTableField(name, data, ref?) : OrmTableFieldType
     {
         let field = null;
         if(!('type' in data))
@@ -175,7 +176,10 @@ export class OrmSchemaBuilder
                     }
                     break;
                 case 'autoincrement':
-                    field = new OrmTableIdTypeAutoIncrement(name);
+                    if(ref)
+                        field = new OrmTableFieldTypeInteger(name);
+                    else
+                        field = new OrmTableIdTypeAutoIncrement(name);
                     break;
                 default:
                     field = this.config.createTableFieldType(data['type'], name, data);
@@ -207,11 +211,32 @@ export class OrmSchemaBuilder
 
     private generateFields(builder: OrmTableBuilder, ed: OrmEntityDefinition)
     {
+        // Normal fields
         for(const fieldName in ed.ormFields)
         {
             let field = this.getTableField(fieldName, ed.ormFields[fieldName]);
 
             builder.addField(field);
+        }
+
+        // ManyToOne fields
+        for(const fieldName in ed.ormManyToOne)
+        {
+            let params = ed.ormManyToOne[fieldName];
+            // Get target
+            let target = params.target;
+            // Get entity definition of target
+            let edTarget = this.config.getEntityDefinition(target);
+
+            Object.entries(this.config.getEntityIds(edTarget)).forEach(([idFieldName, idFieldData]) =>
+            {
+                let field = this.getTableField(
+                    makeReferenceFieldId(fieldName, idFieldName),
+                    idFieldData,
+                    true);
+
+                builder.addField(field);
+            })
         }
     }
 }

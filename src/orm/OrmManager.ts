@@ -1,9 +1,13 @@
 import { BgRed, Reset } from "../bash";
+import { OrmEntityMapper } from "../testing/OrmEntityMapper";
+import { OrmConnection } from "./connection/OrmConnection";
 import { OrmEntityDefinition } from "./entity/OrmEntityDefinition";
 import { OrmConfig } from "./OrmConfig";
 import { OrmInsertBuilder } from "./OrmInsertBuilder";
+import { OrmReference } from "./OrmReference";
 import { EntityClass } from "./types";
-import { camelcaseToUnderscore, getEntityFieldValue } from "./utils";
+import { camelcaseToUnderscore, getEntityFieldValue, makeReferenceFieldId } from "./utils";
+import isString from "./utils/isString";
 
 function isEmptyObject(obj)
 {
@@ -12,7 +16,7 @@ function isEmptyObject(obj)
 
 export class OrmManager
 {
-    private con;
+    private con: OrmConnection;
     private config: OrmConfig;
     private entitiesToDelete = [];
     private entitiesToPersist = [];
@@ -23,9 +27,9 @@ export class OrmManager
         this.config = config;
     }
 
-    public async findBy<T>(entityClass: EntityClass<T>, criteria) : Promise<T[]>
+    public async findBy<T>(entityClass: EntityClass<T>|string, criteria) : Promise<T[]>
     {
-        let ed = this.config.getEntityDefinition(entityClass.name);
+        let ed = this.config.getEntityDefinition(isString(entityClass) ? entityClass : entityClass.name);
         let entityDefinition = ed;
 
         //
@@ -47,6 +51,14 @@ export class OrmManager
                 for(const fieldName in ed.ormFields)
                 {
                     fieldsToSelect.push(`\`${fieldName}\``);
+                }
+                for(const fieldName in ed.ormManyToOne)
+                {
+                    const edTarget = this.config.getEntityDefinition(ed.ormManyToOne[fieldName].target);
+                    Object.entries(this.config.getEntityIds(edTarget)).forEach(([idFieldName, idFieldData]) =>
+                    {
+                        fieldsToSelect.push(`\`${makeReferenceFieldId(fieldName, idFieldName)}\``);
+                    });
                 }
                 if(ed.extends !== undefined)
                 {
@@ -135,7 +147,7 @@ export class OrmManager
             //
             // Execute
             //
-            this.config.con.query(sql, async function(err, result, fields)
+            this.config.con.query(sql, async (err, result, fields) =>
             {
                 if(err)
                 {
@@ -143,28 +155,13 @@ export class OrmManager
                 }
                 else
                 {
-                    //
-                    // Map rows to entities
-                    //
-                    result.forEach((row) =>
-                    {
-                        let entity = new entityClass();
-
-                        for(const columnName in row)
-                        {
-                            entity[columnName] = row[columnName];
-                        }
-
-                        resultEntities.push(entity);
-                    });
-                    // Done
-                    done(resultEntities);
+                    (new OrmEntityMapper(this.config)).map(entityClass, result, done);
                 }
             });
         })
     }
 
-    public async findOneBy<T>(entityClass: EntityClass<T>, criteria) : Promise<T>
+    public async findOneBy<T>(entityClass: EntityClass<T>|string, criteria) : Promise<T>
     {
         return new Promise((done) =>
         {
@@ -247,7 +244,7 @@ export class OrmManager
         {
             this.con.query(sql, () =>
             {
-                done();
+                done(undefined);
             });
         });
     }
@@ -280,16 +277,44 @@ export class OrmManager
         // Add insert values
         for(const columnName in ed.ormIds) this.addInsertColumn(builder, entity, columnName, ed.ormIds[columnName]);
         for(const columnName in ed.ormFields) this.addInsertColumn(builder, entity, columnName, ed.ormFields[columnName]);
+        for(const columnName in ed.ormManyToOne)
+        {
+            const ent: OrmReference<any> = entity[columnName];
+
+            if(ent && ent.id)
+            {
+            }
+            else if(ent && ent.value)
+            {
+                const refEd = this.config.getEntityDefinition(ed.ormManyToOne[columnName].target);
+                const refIds = this.config.getEntityIds(refEd);
+                
+                Object.entries(refIds).forEach(([idFieldName, idFieldData]) =>
+                {
+                    builder.add(
+                        makeReferenceFieldId(columnName, idFieldName),
+                        ent.value[idFieldName]
+                    );
+                })
+            }
+            else
+            {
+                console.log('CHECK NULLABLE');
+            }
+        }
 
         // Execute
         return new Promise((done) =>
         {
-            this.con.query(builder.getSqlQuery(), () =>
+            this.con.query(builder.getSqlQuery(), (err, result, fields) =>
             {
+                // TODO: Mejorar esto
+                entity['id'] = result.insertId;
+
                 // OnPostInsert
                 if(entity.ormOnPostInsert) entity.ormOnPostInsert();
 
-                done();
+                done(undefined);
             });
         })
     }

@@ -21,3 +21,8 @@ export function camelcaseToUnderscore(camelcaseString)
 {
     return camelcaseString.replace(/\.?([A-Z])/g, function (x,y){return "_" + y.toLowerCase()}).replace(/^_/, "")
 }
+
+export function makeReferenceFieldId(fieldName, idFieldName)
+{
+    return camelcaseToUnderscore(fieldName) + "_" + camelcaseToUnderscore(idFieldName);
+}
