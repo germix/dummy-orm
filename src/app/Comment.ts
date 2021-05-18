@@ -17,4 +17,10 @@ export class Comment extends Objekt
         target: User,
     })
     user: OrmReference<User>;
+
+    @OrmEntityFieldAsManyToOne({
+        target: Objekt,
+        nullable: true,
+    })
+    parent?: OrmReference<Objekt>;
 }

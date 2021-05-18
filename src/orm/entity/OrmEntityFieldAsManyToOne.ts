@@ -1,7 +1,10 @@
 import { entityDefinitions } from "../OrmConfig";
 import { makeGetMethod } from "../utils";
 
-export function OrmEntityFieldAsManyToOne(params?)
+export function OrmEntityFieldAsManyToOne(params: {
+    target;
+    nullable?: boolean;
+})
 {
     return function(target, fieldName)
     {

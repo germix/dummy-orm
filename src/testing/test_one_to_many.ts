@@ -25,4 +25,5 @@ export async function test_one_to_many(cfg: OrmConfig)
         id: 1,
     })
     console.log(await cmt.user.get())
+    console.log(await cmt.parent.get())
 }

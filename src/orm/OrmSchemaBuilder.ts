@@ -234,6 +234,11 @@ export class OrmSchemaBuilder
                     makeReferenceFieldId(fieldName, idFieldName),
                     idFieldData,
                     true);
+                
+                if(params.nullable)
+                {
+                    field.setNullable(true);
+                }
 
                 builder.addField(field);
             })

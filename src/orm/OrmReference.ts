@@ -27,16 +27,23 @@ export class OrmReference<T>
     {
         return new Promise(async (done, reject) =>
         {
-            if(this.value)
+            if(this.value !== undefined)
             {
                 done(this.value)
             }
             else
             {
-                this.value = await (new OrmManager(this.cfg)).findOneBy(this.className,
+                if(this.id === null)
                 {
-                    id: this.id
-                });
+                    this.value = null;
+                }
+                else
+                {
+                    this.value = await (new OrmManager(this.cfg)).findOneBy(this.className,
+                    {
+                        id: this.id
+                    });
+                }
                 done(this.value);
             }
         });
