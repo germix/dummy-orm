@@ -75,7 +75,7 @@ export class OrmSchemaBuilder
                         {
                             tmp = tmp.extends;
                         }
-                        this.generateIds(builder, tmp);
+                        this.generateIds(builder, tmp, true);
                     }
 
                     //
@@ -199,7 +199,7 @@ export class OrmSchemaBuilder
         {
             let idData = ed.ormIds[idName];
 
-            let field = this.getTableField(idName, idData).setPrimaryKey(true);
+            let field = this.getTableField(idName, idData, foreign).setPrimaryKey(true);
             if(foreign)
             {
                 field.setForeignKeyTable(ed.tableName);

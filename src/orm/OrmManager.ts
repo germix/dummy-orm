@@ -275,7 +275,11 @@ export class OrmManager
         if(entity.ormOnPreInsert) entity.ormOnPreInsert();
 
         // Add insert values
-        for(const columnName in ed.ormIds) this.addInsertColumn(builder, entity, columnName, ed.ormIds[columnName]);
+        let ids = this.config.getEntityIds(ed);
+        for(const columnName in ids)
+        {
+            this.addInsertColumn(builder, entity, columnName, ids[columnName]);
+        }
         for(const columnName in ed.ormFields) this.addInsertColumn(builder, entity, columnName, ed.ormFields[columnName]);
         for(const columnName in ed.ormManyToOne)
         {
@@ -309,7 +313,13 @@ export class OrmManager
             this.con.query(builder.getSqlQuery(), (err, result, fields) =>
             {
                 // TODO: Mejorar esto
-                entity['id'] = result.insertId;
+                if(result)
+                {
+                    if(result.insertId !== undefined && entity['id'] === undefined)
+                    {
+                        entity['id'] = result.insertId;
+                    }
+                }
 
                 // OnPostInsert
                 if(entity.ormOnPostInsert) entity.ormOnPostInsert();
@@ -323,6 +333,11 @@ export class OrmManager
     {
         if(columnData.type == 'autoincrement')
         {
+            let value = getEntityFieldValue(entity, columnName);
+            if(value !== undefined)
+            {
+                builder.add(columnName, value);
+            }
         }
         else
         {
