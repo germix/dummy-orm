@@ -1,5 +1,6 @@
 import { OrmEntityDefinition } from "../entity/OrmEntityDefinition";
 import { OrmConfig } from "../OrmConfig";
+import { makeReferenceFieldId } from "../utils";
 import { Lexer } from "./Lexer";
 import { Token, TOK_EOF, TOK_EQ, TOK_FROM, TOK_GE, TOK_LE, TOK_LEXEME, TOK_LIKE, TOK_L_AND, TOK_L_OR, TOK_NE, TOK_NUMERIC, TOK_SELECT, TOK_SHL, TOK_SHR, TOK_STRING, TOK_WHERE, TOK_AND, TOK_OR, TOK_BETWEEN, TOK_NOT } from "./Token";
 
@@ -229,6 +230,7 @@ export class Parser
             }
             else
             {
+                fields.push(new FieldInfo(tableAlias, '*'));
             }
             
             if(this.tok.id == ',')
@@ -553,14 +555,49 @@ export class Parser
             const fromAlias = fieldInfo.tableAlias;
             const fieldName = fieldInfo.fieldName;
             const entityDefinition = this.findEntityDefinitionFromAlias(fromParts, fromAlias);
+            if(fieldInfo.fieldName == '*')
+            {
+                for(const fieldName in this.config.getEntityIds(entityDefinition))
+                {
+                    const {
+                        subAlias,
+                        fieldNameAs,
+                        fieldNameOriginal,
+                    } = this.getFieldData(aliasTablesToData, fromAlias, entityDefinition, fieldName);
+    
+                    fieldsToSelect.push(`${subAlias}.${fieldNameOriginal} as ${fieldNameAs}`);
+                }
+                for(const fieldName in this.config.getEntityFields(entityDefinition))
+                {
+                    const {
+                        subAlias,
+                        fieldNameAs,
+                        fieldNameOriginal,
+                    } = this.getFieldData(aliasTablesToData, fromAlias, entityDefinition, fieldName);
+    
+                    fieldsToSelect.push(`${subAlias}.${fieldNameOriginal} as ${fieldNameAs}`);
+                }
+                for(const fieldName in this.config.getEntityManyToOneFields(entityDefinition))
+                {
+                    const {
+                        subAlias,
+                        fieldNameAs,
+                        fieldNameOriginal,
+                    } = this.getFieldDataManyToOne(aliasTablesToData, fromAlias, entityDefinition, fieldName);
 
-            const {
-                subAlias,
-                fieldNameAs,
-                fieldNameOriginal,
-            } = this.getFieldData(aliasTablesToData, fromAlias, entityDefinition, fieldName);
+                    fieldsToSelect.push(`${subAlias}.${fieldNameOriginal} as ${fieldNameAs}`);
+                }
+            }
+            else
+            {
+                const {
+                    subAlias,
+                    fieldNameAs,
+                    fieldNameOriginal,
+                } = this.getFieldData(aliasTablesToData, fromAlias, entityDefinition, fieldName);
 
-            fieldsToSelect.push(`${subAlias}.${fieldNameOriginal} as ${fieldNameAs}`);
+                fieldsToSelect.push(`${subAlias}.${fieldNameOriginal} as ${fieldNameAs}`);
+            }
         });
 
         //
@@ -670,6 +707,21 @@ export class Parser
             subAlias,
             fieldNameAs,
             fieldNameOriginal,
+        }
+    }
+
+    private getFieldDataManyToOne(aliasTablesToData, fromAlias, entityDefinition: OrmEntityDefinition, fieldName)
+    {
+        let fieldNameParts = fieldName.split(" as ");
+        let fieldNameAs = (fieldNameParts.length == 2) ? fieldNameParts[1] : fieldName;
+        let fieldNameOriginal = (fieldNameParts.length == 2) ? fieldNameParts[0] : fieldName;
+        let entityDefinitionFromField = this.config.findDefinitionFromFieldOrId(entityDefinition, fieldNameOriginal);
+        let subAlias = aliasTablesToData[fromAlias][entityDefinitionFromField.tableName];
+
+        return {
+            subAlias,
+            fieldNameAs: makeReferenceFieldId(fieldNameAs, 'id'),
+            fieldNameOriginal: makeReferenceFieldId(fieldNameOriginal, 'id'),
         }
     }
 

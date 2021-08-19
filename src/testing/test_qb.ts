@@ -1,3 +1,4 @@
+import { Comment } from "../app/Comment";
 import { User } from "../app/User";
 import { OrmEntityDefinition } from "../orm/entity/OrmEntityDefinition";
 import { OrmConfig } from "../orm/OrmConfig";
@@ -476,10 +477,11 @@ export async function test_qb(config: OrmConfig)
     let query18 = `SELECT u{id,username} FROM User u WHERE u.id != 3`;
     let query19 = `SELECT u{id,username} FROM User u WHERE u.id == 3`;
     let query20 = `SELECT u{id,username} FROM User u WHERE u.id BETWEEN 2 AND 3`;
-    let query21 = `SELECT u{id,username} FROM User u WHERE NOT u.id BETWEEN 2 AND 3`;
+    let query21 = `SELECT u FROM Comment u WHERE NOT u.id BETWEEN 2 AND 3`;
 
 
-    qr.run(query21)
+    console.log('-----------------------------------------')
+    await qr.run(query21)
     .then((entities) =>
     {
         console.log(entities)
@@ -527,7 +529,7 @@ class OrmQueryRunner
                 }
                 else
                 {
-                    (new OrmEntityMapper(this.config)).map(Customer, result, (entities) =>
+                    (new OrmEntityMapper(this.config)).map(Comment, result, (entities) =>
                     {
                         done(entities);
                     })

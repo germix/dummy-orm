@@ -81,8 +81,8 @@ async function main()
     await install(cfg);
 
     //test_0(cfg);
-    //test_qb(cfg);
-    test_one_to_many(cfg);
+    test_qb(cfg);
+    //test_one_to_many(cfg);
 }
 
 try

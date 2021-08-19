@@ -92,39 +92,6 @@ export class OrmConfig
         return ed.ormIds;
     }
 
-/*
-    private getEntityIds(entityDefinition: OrmEntityDefinition)
-    {
-        let ids = {};
-
-        //
-        // Ids from extends
-        //
-        if(entityDefinition.extends !== undefined)
-        {
-            let ed = entityDefinition;
-            while(ed.extends !== undefined)
-            {
-                ed = ed.extends;
-            }
-            for(const idName in ed.ormIds)
-            {
-                ids[idName] = ed.ormIds[idName];
-            }
-        }
-
-        //
-        // Ids
-        //
-        for(const idName in entityDefinition.ormIds)
-        {
-            ids[idName] = entityDefinition.ormIds[idName];
-        }
-
-        return ids;
-    }
-*/
-
     public getEntityFields(ed: OrmEntityDefinition)
     {
         let fields = {};
@@ -184,6 +151,13 @@ export class OrmConfig
             }
         }
         for(const fn in entityDefinition.ormFields)
+        {
+            if(fn == fieldName)
+            {
+                return entityDefinition;
+            }
+        }
+        for(const fn in entityDefinition.ormManyToOne)
         {
             if(fn == fieldName)
             {
