@@ -80,6 +80,8 @@ async function main()
 
     await install(cfg);
 
+    await cfg.con.query(`USE \`${cfg.dbname}\``);
+
     //test_0(cfg);
     test_qb(cfg);
     //test_one_to_many(cfg);

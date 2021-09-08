@@ -1,4 +1,4 @@
-import { Token, TOK_AND, TOK_BETWEEN, TOK_EOF, TOK_EQ, TOK_FROM, TOK_GE, TOK_LE, TOK_LEXEME, TOK_LIKE, TOK_L_AND, TOK_L_OR, TOK_NE, TOK_NOT, TOK_NUMERIC, TOK_OR, TOK_SELECT, TOK_SHL, TOK_SHR, TOK_STRING, TOK_WHERE } from "./Token";
+import { Token, TOK_AND, TOK_BETWEEN, TOK_DELETE, TOK_EOF, TOK_EQ, TOK_FROM, TOK_GE, TOK_LE, TOK_LEXEME, TOK_LIKE, TOK_L_AND, TOK_L_OR, TOK_NE, TOK_NOT, TOK_NUMERIC, TOK_OR, TOK_SELECT, TOK_SHL, TOK_SHR, TOK_STRING, TOK_WHERE } from "./Token";
 
 function isSpace(c)
 {
@@ -265,6 +265,7 @@ export class Lexer
         const ucLexeme = lexeme.toUpperCase();
 
         if(ucLexeme == "SELECT")    return TOK_SELECT;
+        if(ucLexeme == "DELETE")    return TOK_DELETE;
         if(ucLexeme == "FROM")      return TOK_FROM;
         if(ucLexeme == "WHERE")     return TOK_WHERE;
         if(ucLexeme == "LIKE")      return TOK_LIKE;

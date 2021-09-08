@@ -1,13 +1,12 @@
 import { BgBlue, Reset } from "../../bash";
 import { OrmConnection } from "./OrmConnection";
-
-var mysql = require('mysql');
+import mysql from 'mysql';
 
 export class OrmConnectionMysql implements OrmConnection
 {
-    con;
+    con:  mysql.Connection;
 
-    constructor(params, callback)
+    constructor(params: mysql.ConnectionConfig, callback)
     {
         this.con = mysql.createConnection(params);
 
@@ -16,6 +15,7 @@ export class OrmConnectionMysql implements OrmConnection
             if(err)
                 throw err;
             console.log("Connected!");
+
             callback();
         });
     }

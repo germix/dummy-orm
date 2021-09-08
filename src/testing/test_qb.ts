@@ -487,15 +487,20 @@ export async function test_qb(config: OrmConfig)
         console.log(entities)
     })
 
-    /*
-    let parser = new Parser(config);
+    console.log('-----------------------------------------')
 
-    let sql = parser.parse(query2);
-    
-    console.log(sql);
-    */
+    await qr.run('DELETE FROM Comment c WHERE c.id == 4')
+    .then((entities) =>
+    {
+        console.log(entities)
+    });
 
     console.log('-----------------------------------------')
+    await qr.run(query21)
+    .then((entities) =>
+    {
+        console.log(entities)
+    })
 }
 
 
@@ -529,10 +534,21 @@ class OrmQueryRunner
                 }
                 else
                 {
-                    (new OrmEntityMapper(this.config)).map(Comment, result, (entities) =>
+                    if(typeof result === 'object' && result.constructor === Array)
                     {
-                        done(entities);
-                    })
+                        (new OrmEntityMapper(this.config)).map(Comment, result, (entities) =>
+                        {
+                            done(entities);
+                        });
+                    }
+                    else if(typeof result === 'object' && result.constructor?.name === 'OkPacket')
+                    {
+                        done(true);
+                    }
+                    else
+                    {
+                        throw "???";
+                    }
                 }
             });
         });

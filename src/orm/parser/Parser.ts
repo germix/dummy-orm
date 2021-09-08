@@ -2,7 +2,7 @@ import { OrmEntityDefinition } from "../entity/OrmEntityDefinition";
 import { OrmConfig } from "../OrmConfig";
 import { makeReferenceFieldId } from "../utils";
 import { Lexer } from "./Lexer";
-import { Token, TOK_EOF, TOK_EQ, TOK_FROM, TOK_GE, TOK_LE, TOK_LEXEME, TOK_LIKE, TOK_L_AND, TOK_L_OR, TOK_NE, TOK_NUMERIC, TOK_SELECT, TOK_SHL, TOK_SHR, TOK_STRING, TOK_WHERE, TOK_AND, TOK_OR, TOK_BETWEEN, TOK_NOT } from "./Token";
+import { Token, TOK_EOF, TOK_EQ, TOK_FROM, TOK_GE, TOK_LE, TOK_LEXEME, TOK_LIKE, TOK_L_AND, TOK_L_OR, TOK_NE, TOK_NUMERIC, TOK_SELECT, TOK_SHL, TOK_SHR, TOK_STRING, TOK_WHERE, TOK_AND, TOK_OR, TOK_BETWEEN, TOK_NOT, TOK_DELETE } from "./Token";
 
 // https://dev.mysql.com/doc/refman/8.0/en/operator-precedence.html
 
@@ -161,6 +161,8 @@ export class Parser
         this.next();
         if(this.tok.id == TOK_SELECT)
             return this.parseSelect();
+        if(this.tok.id == TOK_DELETE)
+            return this.parseDelete();
 
         // TODO
     }
@@ -272,6 +274,31 @@ export class Parser
         console.log(fromParts);
 
         return this.generateSelectSQL(fields, fromParts, whereExpr);
+    }
+
+    private parseDelete()
+    {
+
+        // Skip 'DELETE'
+        this.next();
+
+        //
+        // From clause
+        //
+        this.match(TOK_FROM);
+        const fromPart = new FromPart(this.nextIdentifier(), this.nextIdentifier());
+
+        //
+        // Where clause
+        //
+        let whereExpr: Expr = null;
+        if(this.tok.id == TOK_WHERE)
+        {
+            this.next();
+            whereExpr = this.expr();
+        }
+        
+        return this.generateDeleteSQL([fromPart], whereExpr);
     }
 
     private expr()
@@ -482,70 +509,61 @@ export class Parser
         return ident;
     }
 
+    private generateDeleteSQL(fromParts: FromPart[], whereExpr: Expr)
+    {
+        let sql = ''
+        let aliasTablesToData = {};
+
+        //
+        // From clauses
+        //
+        const fromClauses = this.makeFromClauses(aliasTablesToData, fromParts);
+
+        //
+        // Where clause
+        //
+        const whereClause = this.stringifyExpr(aliasTablesToData, fromParts, whereExpr);
+
+        // ...
+        //sql += `USE \`${this.config.dbname}\`;`;
+        sql += 'DELETE';
+        if(fromClauses.length > 0)
+        {
+            let froms = [];
+            Object.entries(aliasTablesToData).forEach(([key, value]) =>
+            {
+                Object.entries(value).forEach(([key2, value2]) =>
+                {
+                    froms.push(value2);
+                });
+            });
+            
+            sql += " FROM ";
+            sql += froms.join(",");
+
+            sql += " USING " + fromClauses.join(', ');
+        }
+        if(whereClause != null)
+        {
+            sql += " WHERE " + whereClause;
+        }
+        sql += ";";
+        // ...
+        return sql;
+    }
+
     private generateSelectSQL(fields: FieldInfo[], fromParts: FromPart[], whereExpr: Expr)
     {
         let sql = '';
-        let dbName = this.config.dbname;
 
-        let lastSubAliasId = 1;
-        
         let aliasTablesToData = {};
-        let aliasFieldsToData = {};
 
         let fieldsToSelect = [];
-        let fromClauses = [];
-        let whereClause = null;
 
-        if(fromParts.length > 0)
-        {
-            fromParts.forEach((from) =>
-            {
-                let entityDefinition = this.config.getEntityDefinition(from.entityName);
-                let tableName = entityDefinition.tableName;
-                let mainSubAlias = 't' + lastSubAliasId++;
-                let fromClause = `\`${dbName}\`.\`${tableName}\` ${mainSubAlias}`;
-                
-                aliasTablesToData[from.alias] = {};
-                aliasTablesToData[from.alias][tableName] = mainSubAlias;
-
-                {
-                    let ed = entityDefinition;
-                    if(ed.extends !== undefined)
-                    {
-                        //
-                        // Get ids
-                        //
-                        let ids = this.config.getEntityIds(ed);
-
-                        //
-                        // ...
-                        //
-                        ed = ed.extends;
-                        do
-                        {
-                            let first = true;
-                            let joinSubAlias = 't' + lastSubAliasId++;
-                            
-                            fromClause += ` INNER JOIN \`${dbName}\`.\`${ed.tableName}\` ${joinSubAlias} ON `;
-                            aliasTablesToData[from.alias][ed.tableName] = joinSubAlias;
-
-                            for(const idName in ids)
-                            {
-                                if(!first)
-                                    fromClause += " AND ";
-                                first = false;
-                                fromClause += `${mainSubAlias}.\`${idName}\` = ${joinSubAlias}.\`${idName}\``;
-                            }
-                            ed = ed.extends;
-                        }
-                        while(ed !== undefined);
-                    }
-                }
-                
-                fromClauses.push(fromClause);
-
-            })
-        }
+        //
+        // From clauses
+        //
+        let fromClauses = this.makeFromClauses(aliasTablesToData, fromParts);
 
         //
         // Fields to select
@@ -603,10 +621,7 @@ export class Parser
         //
         // Where clause
         //
-        if(whereExpr != null)
-        {
-            whereClause = this.stringifyExpr(aliasTablesToData, fromParts, whereExpr);
-        }
+        const whereClause = this.makeWhereClause(aliasTablesToData, fromParts, whereExpr);
 
         // ...
         sql += 'SELECT ' + fieldsToSelect.join(', ');
@@ -620,6 +635,73 @@ export class Parser
         }
         // ...
         return sql;
+    }
+
+    private makeFromClauses(aliasTablesToData, fromParts: FromPart[])
+    {
+        let lastSubAliasId = 1;
+        let fromClauses = [];
+        let dbName = this.config.dbname;
+
+        if(fromParts.length > 0)
+        {
+            fromParts.forEach((from) =>
+            {
+                let entityDefinition = this.config.getEntityDefinition(from.entityName);
+                let tableName = entityDefinition.tableName;
+                let mainSubAlias = 't' + lastSubAliasId++;
+                let fromClause = `\`${dbName}\`.\`${tableName}\` ${mainSubAlias}`;
+                
+                aliasTablesToData[from.alias] = {};
+                aliasTablesToData[from.alias][tableName] = mainSubAlias;
+
+                {
+                    let ed = entityDefinition;
+                    if(ed.extends !== undefined)
+                    {
+                        //
+                        // Get ids
+                        //
+                        let ids = this.config.getEntityIds(ed);
+
+                        //
+                        // ...
+                        //
+                        ed = ed.extends;
+                        do
+                        {
+                            let first = true;
+                            let joinSubAlias = 't' + lastSubAliasId++;
+                            
+                            fromClause += ` INNER JOIN \`${dbName}\`.\`${ed.tableName}\` ${joinSubAlias} ON `;
+                            aliasTablesToData[from.alias][ed.tableName] = joinSubAlias;
+
+                            for(const idName in ids)
+                            {
+                                if(!first)
+                                    fromClause += " AND ";
+                                first = false;
+                                fromClause += `${mainSubAlias}.\`${idName}\` = ${joinSubAlias}.\`${idName}\``;
+                            }
+                            ed = ed.extends;
+                        }
+                        while(ed !== undefined);
+                    }
+                }
+
+                fromClauses.push(fromClause);
+            });
+        }
+        return fromClauses;
+    }
+
+    private makeWhereClause(aliasTablesToData, fromParts: FromPart[], whereExpr: Expr)
+    {
+        if(whereExpr != null)
+        {
+            return this.stringifyExpr(aliasTablesToData, fromParts, whereExpr);
+        }
+        return null;
     }
 
     private stringifyExpr(aliasTablesToData, fromParts: FromPart[], expr: Expr) : string

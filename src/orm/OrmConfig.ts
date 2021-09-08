@@ -66,9 +66,12 @@ export class OrmConfig
                     try
                     {
                         this.con = new OrmConnectionMysql({
+                            //debug: true,
+                            trace: true,
+                            //multipleStatements: true,
                             host: host || "localhost",
                             user: user || "",
-                            password: password || ""
+                            password: password || "",
                         }, () =>
                         {
                             done(this);
