@@ -2,7 +2,8 @@
   "compilerOptions": {
     "lib": [
       "DOM",
-      "ES2017"
+      "ES2017",
+      "ES2021.String"
     ],
     "target": "es6",
     "module": "commonjs",

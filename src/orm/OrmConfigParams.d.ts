@@ -1,16 +1,19 @@
+import { ConfigDriverType } from "./types";
 import { OrmTableFieldType } from "./types/OrmTableFieldType";
 
 interface OrmConfigParams
 {
-    type: 'dummy'|'mysql',
-    dbname,
-    host?,
-    user?,
-    password?,
-    entities: any[],
+    type: ConfigDriverType;
+    dbname: string;
+    port?: number;
+    host?: string;
+    user?: string;
+    password?: string;
+    entities: any[];
     customTypes?:
     {
-        name,
-        type: typeof OrmTableFieldType,
+        name: string;
+        type: typeof OrmTableFieldType;
     }[];
+    debug?: boolean; // TODO:
 }

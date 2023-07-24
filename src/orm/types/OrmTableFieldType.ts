@@ -1,82 +1,84 @@
+import { OrmConfig } from "../OrmConfig";
+import { ConfigDriverType } from "../types";
 
 export abstract class OrmTableFieldType
 {
-    private name;
-    private nullable = false;
-    private primaryKey = false;
-    private foreignKeyTable = null;
-    private foreignKeyColumn = null;
+    private name: string;
+    private nullable: boolean = false;
+    private primaryKey: boolean = false;
+    private foreignKeyTable: string = null;
+    private foreignKeyColumn: string = null;
 
-    constructor(name)
+    constructor(name: string)
     {
         this.name = name;
     }
 
-    public getName()
+    public getName(): string
     {
         return this.name;
     }
 
-    public setName(name)
+    public setName(name: string)
     {
         this.name = name;
 
         return this;
     }
 
-    public getNullable()
+    public getNullable(): boolean
     {
         return this.nullable;
     }
 
-    public setNullable(nullable)
+    public setNullable(nullable: boolean)
     {
         this.nullable = nullable;
 
         return this;
     }
 
-    public getPrimaryKey()
+    public getPrimaryKey(): boolean
     {
         return this.primaryKey;
     }
 
-    public setPrimaryKey(primaryKey)
+    public setPrimaryKey(primaryKey: boolean)
     {
         this.primaryKey = primaryKey;
 
         return this;
     }
 
-    public getForeignKeyTable()
+    public getForeignKeyTable(): string
     {
         return this.foreignKeyTable;
     }
 
-    public setForeignKeyTable(foreignKeyTable)
+    public setForeignKeyTable(foreignKeyTable: string)
     {
         this.foreignKeyTable = foreignKeyTable;
 
         return this;
     }
 
-    public getForeignKeyColumn()
+    public getForeignKeyColumn(): string
     {
         return this.foreignKeyColumn;
     }
 
-    public setForeignKeyColumn(foreignKeyColumn)
+    public setForeignKeyColumn(foreignKeyColumn: string)
     {
         this.foreignKeyColumn = foreignKeyColumn;
 
         return this;
     }
 
-    public abstract getColumnType();
+    public abstract getColumnType(driverType: ConfigDriverType): string;
 
-    public toString()
+    public toString(config: OrmConfig): string
     {
-        let sql = `\`${this.name}\` ${this.getColumnType()}`;
+        let sql = `${config.wrapFieldName(this.name)} ${this.getColumnType(config.getDriverType())}`;
 
         if(!this.nullable || this.primaryKey)
         {

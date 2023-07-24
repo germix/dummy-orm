@@ -1,17 +1,19 @@
 import { OrmConnection } from "./connection/OrmConnection";
-import { OrmConnectionDummy } from "./connection/OrmConnectionDummy";
 import { OrmConnectionMysql } from "./connection/OrmConnectionMysql";
+import { OrmConnectionPostgresql } from "./connection/OrmConnectionPostgresql";
 import { OrmEntityDefinition } from "./entity/OrmEntityDefinition";
 import { OrmConfigParams } from "./OrmConfigParams";
+import { OrmException } from "./OrmException";
+import { OrmSchemaBuilder } from "./OrmSchemaBuilder";
+import { ConfigDriverType } from "./types";
 import { OrmTableFieldType } from "./types/OrmTableFieldType";
 import isString from "./utils/isString";
 
-export const entityDefinitions = {
-
-};
+export const entityDefinitions: {[key: string]: OrmEntityDefinition} = {};
 
 export class OrmConfig
 {
+    private params: OrmConfigParams;
     con: OrmConnection;
     dbname;
     entities = [];
@@ -25,65 +27,151 @@ export class OrmConfig
     {
     }
 
-    public init({
-        type,
-        dbname,
-        host,
-        user,
-        password,
-        entities,
-        customTypes,
-    }: OrmConfigParams) : Promise<OrmConfig>
+    /**
+     * Initialize
+     */
+    public init(params: OrmConfigParams) : Promise<void>
     {
-        return new Promise((done, reject) =>
+        this.params = params;
+        return new Promise<void>((done, reject) =>
         {
-            this.dbname = dbname,
-            this.entities = entities;
-            this.customTypes = customTypes || [];
+            this.dbname = params.dbname,
+            this.entities = params.entities;
+            this.customTypes = params.customTypes || [];
 
-            //
-            // Patch extends
-            //
             this.entities.forEach((e) =>
             {
                 const ed = this.getEntityDefinition(e.name);
+
+                //
+                // Check valid entity definition
+                //
+                if(ed.name !== e.name)
+                {
+                    throw new OrmException(`Metadata for entity '${e.name}' not found`);
+                }
+
+                //
+                // Patch extends
+                //
                 if(ed.extends !== undefined)
                 {
                     ed.extends = this.getEntityDefinition(ed.extends.name);
                 }
+
+                //
+                // Patch mapped by for OneToMany
+                //
+                if(ed.ormOneToMany !== undefined)
+                {
+                    for(const fieldName in ed.ormOneToMany)
+                    {
+                        const fieldParams = ed.ormOneToMany[fieldName];
+                        console.log("fieldName", fieldName)
+                        console.log("fieldParams", fieldParams)
+
+                        // Buscar entidad relacionada
+                        const mappedEntity = this.getEntityDefinition(fieldParams.entity);
+                        if(!mappedEntity)
+                        {
+                            throw new OrmException(`Entity '${fieldParams.entity}' was not discovered (used in ${ed.name}.${fieldName})`);
+                        }
+
+                        if(mappedEntity.ormManyToOne === undefined)
+                        {
+                            mappedEntity.ormManyToOne = {};
+                        }
+                        if(mappedEntity.ormManyToOne[fieldParams.mappedBy] === undefined)
+                        {
+                            mappedEntity.ormManyToOne[fieldParams.mappedBy] = {
+                                target: fieldParams.entity
+                            }
+                            console.log("PATH AAAAAAAAAAAAAA") // TODO:
+                        }
+                        else
+                        {
+                            console.log("PATH BBBBBBBBBBBBBBB") // TODO:
+                        }
+                    }
+                }
+            })
+
+            this.entities.forEach((e) =>
+            {
+                const ed = this.getEntityDefinition(e.name);
+                console.log("ed", ed)
             })
 
             //
             // Create connection
             //
-            switch(type)
+            switch(params.type)
             {
-                case 'dummy':
-                    this.con = new OrmConnectionDummy();
-                    done(this);
-                    break;
                 case 'mysql':
-                    try
-                    {
-                        this.con = new OrmConnectionMysql({
-                            //debug: true,
-                            trace: true,
-                            //multipleStatements: true,
-                            host: host || "localhost",
-                            user: user || "",
-                            password: password || "",
-                        }, () =>
-                        {
-                            done(this);
-                        });
-                    }
-                    catch(error)
-                    {
-                        reject(error);
-                    }
+                    this.con = new OrmConnectionMysql();
                     break;
+                case 'postgresql':
+                    this.con = new OrmConnectionPostgresql();
+                    break;
+                default:
+                    throw new OrmException("Invalid driver type");
             }
+
+            //
+            // Initialize
+            //
+            this.con.init(params);
+            done();
         })
+    }
+
+    /**
+     * Connect
+     */
+    public connect(): Promise<void>
+    {
+        return this.con.connect();
+    }
+
+    /**
+     * Drop schema
+     */
+    public async dropSchema(): Promise<void>
+    {
+        const osb = new OrmSchemaBuilder(this);
+
+        await osb.drop();
+    }
+
+    /**
+     * Create schema
+     */
+    public async createSchema(): Promise<void>
+    {
+        const osb = new OrmSchemaBuilder(this);
+
+        await osb.create();
+        await osb.generate();
+    }
+
+    /**
+     * Get driver type
+     *
+     * @returns Driver type
+     */
+    public getDriverType(): ConfigDriverType
+    {
+        return this.params.type;
+    }
+
+    public wrapTableName(tableName: string): string
+    {
+        return this.con.wrapTableName(tableName);
+    }
+
+    public wrapFieldName(fieldName: string): string
+    {
+        return this.con.wrapFieldName(fieldName);
     }
 
     public getEntityIds(ed: OrmEntityDefinition)
@@ -130,6 +218,15 @@ export class OrmConfig
             entityName = entityName.name;
         }
         return entityDefinitions[entityName];
+    }
+
+    public getEntityDefinitionBase(ed: OrmEntityDefinition) : OrmEntityDefinition
+    {
+        while(ed.extends !== undefined)
+        {
+            ed = ed.extends;
+        }
+        return ed;
     }
 
     public createTableFieldType(type, fieldName, fieldData)

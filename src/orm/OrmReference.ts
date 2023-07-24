@@ -1,4 +1,5 @@
 import { OrmConfig } from "./OrmConfig";
+import { OrmException } from "./OrmException";
 import { OrmManager } from "./OrmManager";
 
 export class OrmReference<T>
@@ -6,14 +7,19 @@ export class OrmReference<T>
     id;
     cfg: OrmConfig;
     value: T;
-    className;
+    className: string;
 
     constructor(value, cfg?: OrmConfig, className?)
     {
+        if(value === null)
+            throw new OrmException("Orm reference value is null");
+        if(value === undefined)
+            throw new OrmException("Orm reference value is undefined");
+
         if(cfg === undefined)
         {
             this.value = value;
-            this.className = className;
+            this.className = value.constructor.name;
         }
         else
         {

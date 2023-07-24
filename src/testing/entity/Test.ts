@@ -83,12 +83,14 @@ export abstract class Person extends Objekt
 }
 
 @OrmEntity()
-@OrmExtends({base: Person})
+@OrmExtends({
+    base: Person,
+    discriminatorValue: 'customer',
+})
 export class Customer extends Person
 {
     @OrmEntityFieldAsString()
     customerField;
-
 }
 
 @OrmEntity()

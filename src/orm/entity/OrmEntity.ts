@@ -1,23 +1,28 @@
-import { BgGreen, Reset } from "../../bash";
+import { logOrmEntity } from "../../testing/log";
 import { entityDefinitions } from "../OrmConfig";
 import { camelcaseToUnderscore } from "../utils";
+import { OrmEntityDefinition } from "./OrmEntityDefinition";
 
-export function OrmEntity(params?)
+interface Params
+{
+    tableName?: string;
+}
+
+export function OrmEntity(params?: Params)
 {
     return function(target)
     {
-        params = params||{};
-        let entityName = target.prototype.constructor.name;
+        params = params || {};
+        const entityName = target.prototype.constructor.name;
 
-        console.log(BgGreen + "[ORM ENTITY]:" + Reset + " " + entityName);
+        logOrmEntity(entityName);
         if(entityDefinitions[entityName] === undefined)
         {
-            entityDefinitions[entityName] = {};
+            entityDefinitions[entityName] = {} as OrmEntityDefinition;
         }
-        entityDefinitions[entityName].isAbstract = params.isAbstract;
-        entityDefinitions[entityName].discriminatorColumn = params.discriminatorColumn;
+
         entityDefinitions[entityName].name = entityName;
-        entityDefinitions[entityName].tableName = camelcaseToUnderscore(entityName);
+        entityDefinitions[entityName].tableName = params.tableName || camelcaseToUnderscore(entityName);
 
         return target;
     }

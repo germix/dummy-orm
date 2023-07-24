@@ -2,7 +2,9 @@ import { OrmEntity } from "../orm/entity/OrmEntity";
 import { OrmEntityFieldAsString } from "../orm/entity/OrmEntityFieldAsString";
 import { OrmExtends } from "../orm/entity/OrmExtends";
 import { OrmOnPostInsert } from "../orm/entity/OrmOnPostInsert";
+import { OrmOnPostUpdate } from "../orm/entity/OrmOnPostUpdate";
 import { OrmOnPreInsert } from "../orm/entity/OrmOnPreInsert";
+import { OrmOnPreUpdate } from "../orm/entity/OrmOnPreUpdate";
 import { Objekt } from "./Objekt";
 
 @OrmEntity()
@@ -13,10 +15,10 @@ import { Objekt } from "./Objekt";
 export class User extends Objekt
 {
     @OrmEntityFieldAsString()
-    username;
+    username: string;
 
     @OrmEntityFieldAsString()
-    password;
+    password: string;
 
     @OrmOnPreInsert()
     onPreInsert()
@@ -27,6 +29,18 @@ export class User extends Objekt
     @OrmOnPostInsert()
     onPostInsert()
     {
-        console.log('User.onPreInsert()')
+        console.log('User.onPostInsert()')
+    }
+
+    @OrmOnPreUpdate()
+    onPreUpdate()
+    {
+        console.log('User.onPreUpdate()')
+    }
+
+    @OrmOnPostUpdate()
+    onPostUpdate()
+    {
+        console.log('User.onPostUpdate()')
     }
 }

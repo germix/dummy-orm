@@ -8,7 +8,7 @@ import { Video } from "./Video";
 export class PlaylistHasVideo
 {
     @OrmEntityIdAsIncremental()
-    id;
+    id: number;
 
     @OrmEntityFieldAsManyToOne({
         target: Video,

@@ -2,17 +2,20 @@ import { Comment } from "../app/Comment";
 import { User } from "../app/User";
 import { OrmEntityDefinition } from "../orm/entity/OrmEntityDefinition";
 import { OrmConfig } from "../orm/OrmConfig";
+import { OrmQueryResult } from "../orm/OrmQueryResult";
+import { OrmQueryRunner } from "../orm/OrmQueryRunner";
 import { Parser } from "../orm/parser/Parser";
+import { ParserException } from "../orm/parser/ParserException";
 import isObject from "../orm/utils/isObject";
 import isString from "../orm/utils/isString";
 import { Customer } from "./entity/Test";
+import { logError } from "./log";
 import { OrmEntityMapper } from "./OrmEntityMapper";
-
 
 class SelectExpr
 {
     fields;
-    
+
     constructor(fields)
     {
         this.fields = fields;
@@ -23,7 +26,7 @@ class FromExpr
 {
     entity;
     alias;
-    
+
     constructor(entity, alias)
     {
         this.entity = entity;
@@ -34,7 +37,7 @@ class FromExpr
 function innerJoin(config: OrmConfig, entityDefinition: OrmEntityDefinition)
 {
     let dbName = config.dbname;
-    
+
     //
     // Inner join
     //
@@ -69,7 +72,7 @@ function innerJoin(config: OrmConfig, entityDefinition: OrmEntityDefinition)
     return sql;
 }
 
-class QueryBuilder
+class OrmQueryBuilder
 {
     private config: OrmConfig;
     private selectExpr: SelectExpr = null;
@@ -81,7 +84,7 @@ class QueryBuilder
         this.config = cfg;
     }
 
-    public select(fields) : QueryBuilder
+    public select(fields) : OrmQueryBuilder
     {
         if(this.selectExpr != null)
         {
@@ -92,14 +95,14 @@ class QueryBuilder
         return this;
     }
 
-    public from(from, alias) : QueryBuilder
+    public from(from, alias) : OrmQueryBuilder
     {
         this.fromParts.push(new FromExpr(from, alias));
 
         return this;
     }
 
-    public where(where) : QueryBuilder
+    public where(where) : OrmQueryBuilder
     {
         this.whereExpr = where;
 
@@ -110,22 +113,31 @@ class QueryBuilder
     {
         if(this.selectExpr != null)
         {
-            return this.getSelectQuery();
+            const sql = this.getSelectQuery();
+            this.reset();
+            return sql;
         }
+        throw new ParserException("TODO:");
+    }
+
+    private reset(): void
+    {
+        this.selectExpr = null;
+        this.fromParts = [];
+        this.whereExpr = null;
     }
 
     private getSelectQuery() : string
     {
+        const cfg = this.config;
         let sql = '';
         let dbName = this.config.dbname;
-        
 
         let lastSubAliasId = 1;
-        
+
         let aliasTablesToData = {};
         let aliasFieldsToData = {};
 
-        
         let fieldsToSelect = [];
         let fromClauses = [];
         let whereClause = null;
@@ -137,8 +149,9 @@ class QueryBuilder
                 let entityDefinition = this.config.getEntityDefinition(from.entity.name);
                 let tableName = entityDefinition.tableName;
                 let mainSubAlias = 't' + lastSubAliasId++;
-                let fromClause = `\`${dbName}\`.\`${tableName}\` ${mainSubAlias}`;
-                
+                // TODO: let fromClause = `\`${dbName}\`.\`${tableName}\` ${mainSubAlias}`;
+                let fromClause = `${cfg.wrapTableName(tableName)} ${mainSubAlias}`;
+
                 aliasTablesToData[from.alias] = {};
                 aliasTablesToData[from.alias][tableName] = mainSubAlias;
 
@@ -159,8 +172,9 @@ class QueryBuilder
                         {
                             let first = true;
                             let joinSubAlias = 't' + lastSubAliasId++;
-                            
-                            fromClause += ` INNER JOIN \`${dbName}\`.\`${ed.tableName}\` ${joinSubAlias} ON `;
+
+                            // TODO: fromClause += ` INNER JOIN \`${dbName}\`.\`${ed.tableName}\` ${joinSubAlias} ON `;
+                            fromClause += ` INNER JOIN ${cfg.wrapTableName(ed.tableName)} ${joinSubAlias} ON `;
                             aliasTablesToData[from.alias][ed.tableName] = joinSubAlias;
 
                             for(const idName in ids)
@@ -168,20 +182,21 @@ class QueryBuilder
                                 if(!first)
                                     fromClause += " AND ";
                                 first = false;
-                                fromClause += `${mainSubAlias}.\`${idName}\` = ${joinSubAlias}.\`${idName}\``;
+                                // TODO: fromClause += `${mainSubAlias}.\`${idName}\` = ${joinSubAlias}.\`${idName}\``;
+                                fromClause += `${mainSubAlias}.${cfg.wrapFieldName(idName)} = ${joinSubAlias}.${cfg.wrapFieldName(idName)}`;
                             }
                             ed = ed.extends;
                         }
                         while(ed !== undefined);
                     }
                 }
-                
+
                 fromClauses.push(fromClause);
 
             })
             //sql += " FROM " + fromClauses.join(', ');
         }
-        
+
         //
         // Fields to select
         //
@@ -209,7 +224,7 @@ class QueryBuilder
                 let entityDefinitionFromField = this.config.findDefinitionFromFieldOrId(entityDefinition, fieldNameOriginal);
                 console.log('rrrrrrrrrrrrrrrrrrrrrrrrrrr')
                 console.log(entityDefinitionFromField);
-                
+
                 let subAlias = aliasTablesToData[fromAlias][entityDefinitionFromField.tableName];
                 console.log('subAlias: ' + subAlias)
                 console.log(aliasTablesToData[fromAlias]);
@@ -228,36 +243,7 @@ class QueryBuilder
         }
         else if(isObject(this.whereExpr))
         {
-            let whereAnds = [];
-            for(const key in this.whereExpr)
-            {
-                const fromAlias = key;
-                const whereValue = this.whereExpr[fromAlias];
-                const entityDefinition = this.findEntityDefinitionFromAlias(fromAlias);
-
-                for(const fieldName in whereValue)
-                {
-                    const {
-                        subAlias,
-                        fieldNameAs,
-                        fieldNameOriginal,
-                    } = this.getFieldData(aliasTablesToData, fromAlias, entityDefinition, fieldName);
-                    const fieldValue = whereValue[fieldName];
-
-                    let expr = null;
-                    if(isString(fieldValue))
-                    {
-                        expr = `${subAlias}.${fieldNameOriginal} = '${fieldValue}'`;
-                    }
-
-                    if(expr == null)
-                    {
-                        // TODO
-                    }
-                    whereAnds.push(expr);
-                }
-            }
-            whereClause = whereAnds.join(" AND ");
+            whereClause = this.buildWhere(this.whereExpr, aliasTablesToData);
         }
 
         sql += 'SELECT ' + fieldsToSelect.join(', ');
@@ -269,69 +255,17 @@ class QueryBuilder
         {
             sql += " WHERE " + whereClause;
         }
-        console.log('AAAAAAAAAAAAAAAA')
-        console.log(sql)
-        console.log('BBBBBBBBBBBBBBBB')
-        console.log(aliasTablesToData)
-        /*
-        //
-        // Select
-        //
-        let fieldsToSelect = [];
 
-        Object.entries(this.selectExpr.fields).forEach(([key, value]) =>
-        {
-            let splittedFields = (value as string).split(',');
-
-            splittedFields.forEach((fieldName) => {
-                fieldsToSelect.push(`${key}.${fieldName}`);
-            });
-        });
-
-        sql += "SELECT " + fieldsToSelect.join(', ');
-
-        //
-        // From
-        //
-        if(this.fromParts.length > 0)
-        {
-            let fromClauses = [];
-
-            this.fromParts.forEach((from) =>
-            {
-                let ed = this.config.getEntityDefinition(from.entityName.name);
-                let tableName = ed.tableName;
-                let fromClause = `\`${dbName}\`.\`${tableName}\` ${from.alias}`;
-
-                //if(this.joinParts[from.alias] !== undefined)
-                {
-                    fromClause += " INNER JOIN person ON a.id = person.id";
-                }
-
-                fromClauses.push(fromClause);
-
-            })
-            sql += " FROM " + fromClauses.join(', ');
-        }
-
-        //
-        // Where
-        //
-        if(this.whereExpr != null)
-        {
-            sql += " WHERE " + this.whereExpr;
-        }
-*/
         return sql;
     }
 
     private getFieldData(aliasTablesToData, fromAlias, entityDefinition: OrmEntityDefinition, fieldName)
     {
-        let fieldNameParts = fieldName.split(" as ");
-        let fieldNameAs = (fieldNameParts.length == 2) ? fieldNameParts[1] : fieldName;
-        let fieldNameOriginal = (fieldNameParts.length == 2) ? fieldNameParts[0] : fieldName;
-        let entityDefinitionFromField = this.config.findDefinitionFromFieldOrId(entityDefinition, fieldNameOriginal);
-        let subAlias = aliasTablesToData[fromAlias][entityDefinitionFromField.tableName];
+        const fieldNameParts = fieldName.split(" as ");
+        const fieldNameAs = (fieldNameParts.length == 2) ? fieldNameParts[1] : fieldName;
+        const fieldNameOriginal = (fieldNameParts.length == 2) ? fieldNameParts[0] : fieldName;
+        const entityDefinitionFromField = this.config.findDefinitionFromFieldOrId(entityDefinition, fieldNameOriginal);
+        const subAlias = aliasTablesToData[fromAlias][entityDefinitionFromField.tableName];
 
         return {
             subAlias,
@@ -340,9 +274,9 @@ class QueryBuilder
         }
     }
 
-    private findEntityDefinitionFromAlias(fromAlias)
+    private findEntityDefinitionFromAlias(fromAlias: string): OrmEntityDefinition
     {
-        let from = this.fromParts.find((from) =>
+        const from = this.fromParts.find((from) =>
         {
             return from.alias == fromAlias;
         });
@@ -350,63 +284,172 @@ class QueryBuilder
         {
             // TODO
         }
-        
-        let entityDefinition = this.config.getEntityDefinition(from.entity.name);
+
+        const entityDefinition = this.config.getEntityDefinition(from.entity.name);
 
         return entityDefinition;
+    }
+
+    private buildWhere(whereExpr: {[key: string]: any}, aliasTablesToData: any): string
+    {
+        const whereAnds: string[] = [];
+
+        for(const key in whereExpr)
+        {
+            const fromAlias = key;
+            const whereValue = whereExpr[fromAlias];
+
+            if(key === "$or")
+            {
+                if(Array.isArray(whereValue))
+                {
+                    const whereOrs = [];
+                    whereValue.forEach((v) =>
+                    {
+                        whereOrs.push(this.buildWhere(v, aliasTablesToData))
+                    })
+                    whereAnds.push(`(${whereOrs.join(" OR ")})`);
+                }
+                else
+                {
+                    throw new ParserException("TODO:");
+                }
+            }
+            else if(key === "$and")
+            {
+                if(Array.isArray(whereValue))
+                {
+                    whereValue.forEach((v) =>
+                    {
+                        whereAnds.push(this.buildWhere(v, aliasTablesToData))
+                    })
+                }
+                else
+                {
+                    throw new ParserException("TODO:");
+                }
+            }
+            else if(key.startsWith("$"))
+            {
+                // TODO:
+            }
+            else
+            {
+                whereAnds.push(...this.buildWhereAND(fromAlias, whereValue, aliasTablesToData));
+            }
+        }
+        return whereAnds.join(" AND ");
+    }
+
+    private buildWhereAND(fromAlias: string, whereValue: any, aliasTablesToData: any): string[]
+    {
+        const whereAnds: string[] = [];
+        const entityDefinition = this.findEntityDefinitionFromAlias(fromAlias);
+
+        for(const fieldName in whereValue)
+        {
+            const {
+                subAlias,
+                fieldNameAs,
+                fieldNameOriginal,
+            } = this.getFieldData(aliasTablesToData, fromAlias, entityDefinition, fieldName);
+            const fieldValue = whereValue[fieldName];
+
+            let expr = null;
+            if(isString(fieldValue))
+            {
+                expr = `${subAlias}.${fieldNameOriginal} = '${fieldValue}'`;
+            }
+
+            if(expr == null)
+            {
+                // TODO:
+                throw new ParserException("TODO: Expression is null");
+            }
+            whereAnds.push(expr);
+        }
+
+        return whereAnds;
     }
 };
 
 export async function test_qb(config: OrmConfig)
 {
-    let qb = new QueryBuilder(config);
+    let qb = new OrmQueryBuilder(config);
+
+    if(true)
+    {
+    console.log('----------------------------')
 
     if(false)
     {
-    console.log('----------------------------')
-    
-    qb.select({
-        a: 'id,name,type as g'
-    })
-    .from(Customer, 'a')
-    //.where('a.id = 5')
-    .where({
-        a: {
-            id: 'p1'
-        }
-    })
-    ;
-
-    
-    qb.select({
-        u: 'id,username'
-    })
-    .from(User, 'u')
-    /*
-    .where({
-        u: {
-            id: '1'
-        }
-    })
-    */
-    .where("u.id = '1' OR u.id = '2'")
-    ;
-    
-    let sql = qb.getSqlQuery();
-    
-    console.log(sql);
-
-    await (async () =>
-    {
-        
-        return new Promise((done, reject) =>
-        {
-            config.con.query(`USE ${config.dbname};`, async function(err, result, fields)
-            {
-                done(0);
-            })
+        qb.select({
+            c: 'id,name,type as kind'
         })
-    })();
+        .from(Customer, 'c')
+        .where({
+            c: {
+                id: '14'
+            }
+        })
+        ;
+        console.log(qb.getSqlQuery());
+    }
+
+    if(false)
+    {
+        qb.select({
+            u: 'id,username'
+        })
+        .from(User, 'u')
+        .where({
+            $or: [
+                {
+                    u: {
+                        id: '8'
+                    }
+                },
+                {
+                    u: {
+                        id: '9'
+                    }
+                }
+            ]
+        })
+        ;
+
+        console.log(qb.getSqlQuery());
+    }
+
+    if(true)
+    {
+        qb.select({
+            u: 'id,username'
+        })
+        .from(User, 'u')
+        .where({
+            $and: [
+                {
+                    u: {
+                        id: '10'
+                    }
+                },
+                {
+                    u: {
+                        username: "User 3",
+                        password: '123'
+                    }
+                }
+            ]
+        })
+        ;
+
+        console.log(qb.getSqlQuery());
+    }
+
+    console.log('----------------------------')
+
+    process.exit();
 
     //
     // Execute
@@ -479,78 +522,10 @@ export async function test_qb(config: OrmConfig)
     let query20 = `SELECT u{id,username} FROM User u WHERE u.id BETWEEN 2 AND 3`;
     let query21 = `SELECT u FROM Comment u WHERE NOT u.id BETWEEN 2 AND 3`;
 
-
-    console.log('-----------------------------------------')
-    await qr.run(query21)
-    .then((entities) =>
-    {
-        console.log(entities)
-    })
+    console.log(await qr.run("query21"));
 
     console.log('-----------------------------------------')
 
-    await qr.run('DELETE FROM Comment c WHERE c.id == 4')
-    .then((entities) =>
-    {
-        console.log(entities)
-    });
+    console.log(await qr.run('DELETE FROM Comment c WHERE c.id == 4'));
 
-    console.log('-----------------------------------------')
-    await qr.run(query21)
-    .then((entities) =>
-    {
-        console.log(entities)
-    })
-}
-
-
-class OrmQueryRunner
-{
-    private config: OrmConfig;
-
-    constructor(cfg: OrmConfig)
-    {
-        this.config = cfg;
-    }
-
-    public run(query) : Promise<any>
-    {
-        return new Promise((done, reject) =>
-        {
-            let parser = new Parser(this.config);
-
-            let sql = parser.parse(query);
-            
-            console.log(sql);
-
-            //
-            // Execute
-            //
-            this.config.con.query(sql, async (err, result, fields) =>
-            {
-                if(err)
-                {
-                    reject(err);
-                }
-                else
-                {
-                    if(typeof result === 'object' && result.constructor === Array)
-                    {
-                        (new OrmEntityMapper(this.config)).map(Comment, result, (entities) =>
-                        {
-                            done(entities);
-                        });
-                    }
-                    else if(typeof result === 'object' && result.constructor?.name === 'OkPacket')
-                    {
-                        done(true);
-                    }
-                    else
-                    {
-                        throw "???";
-                    }
-                }
-            });
-        });
-    }
 }

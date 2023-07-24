@@ -1,7 +1,7 @@
 
 export class OrmException extends Error
 {
-    constructor(message)
+    constructor(message: string)
     {
         super(message);
     }

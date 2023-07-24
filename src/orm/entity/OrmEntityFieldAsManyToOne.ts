@@ -1,10 +1,18 @@
 import { entityDefinitions } from "../OrmConfig";
 import { makeGetMethod } from "../utils";
+import { OrmEntityDefinition } from "./OrmEntityDefinition";
 
-export function OrmEntityFieldAsManyToOne(params: {
-    target;
+interface Params
+{
+    target?;
+
+    /**
+     * Indicates if the field is nullable
+     */
     nullable?: boolean;
-})
+}
+
+export function OrmEntityFieldAsManyToOne(params?: Params)
 {
     return function(target, fieldName)
     {
@@ -12,7 +20,7 @@ export function OrmEntityFieldAsManyToOne(params: {
 
         if(entityDefinitions[entityName] === undefined)
         {
-            entityDefinitions[entityName] = {};
+            entityDefinitions[entityName] = {} as OrmEntityDefinition;
         }
         if(entityDefinitions[entityName].ormManyToOne === undefined)
         {

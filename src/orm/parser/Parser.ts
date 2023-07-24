@@ -1,17 +1,19 @@
 import { OrmEntityDefinition } from "../entity/OrmEntityDefinition";
 import { OrmConfig } from "../OrmConfig";
+import { OrmException } from "../OrmException";
 import { makeReferenceFieldId } from "../utils";
 import { Lexer } from "./Lexer";
-import { Token, TOK_EOF, TOK_EQ, TOK_FROM, TOK_GE, TOK_LE, TOK_LEXEME, TOK_LIKE, TOK_L_AND, TOK_L_OR, TOK_NE, TOK_NUMERIC, TOK_SELECT, TOK_SHL, TOK_SHR, TOK_STRING, TOK_WHERE, TOK_AND, TOK_OR, TOK_BETWEEN, TOK_NOT, TOK_DELETE } from "./Token";
+import { ParserException } from "./ParserException";
+import { Token, TOK_EOF, TOK_EQ, TOK_FROM, TOK_GE, TOK_LE, TOK_LEXEME, TOK_LIKE, TOK_L_AND, TOK_L_OR, TOK_NE, TOK_NUMERIC, TOK_SELECT, TOK_SHL, TOK_SHR, TOK_STRING, TOK_WHERE, TOK_AND, TOK_OR, TOK_BETWEEN, TOK_NOT, TOK_DELETE, TOK_LT, TOK_GT } from "./Token";
 
 // https://dev.mysql.com/doc/refman/8.0/en/operator-precedence.html
 
 class FieldInfo
 {
-    tableAlias;
-    fieldName;
+    tableAlias: string;
+    fieldName: string;
 
-    constructor(tableAlias, fieldName)
+    constructor(tableAlias: string, fieldName: string)
     {
         this.tableAlias = tableAlias;
         this.fieldName = fieldName;
@@ -20,10 +22,10 @@ class FieldInfo
 
 class FromPart
 {
-    entityName;
-    alias;
-    
-    constructor(entityName, alias)
+    entityName: string;
+    alias: string;
+
+    constructor(entityName: string, alias: string)
     {
         this.entityName = entityName;
         this.alias = alias;
@@ -107,7 +109,7 @@ class BetweenExpr extends Expr
     rightMin: Expr;
     rightMax: Expr;
 
-    constructor(left, rightMin, rightMax)
+    constructor(left: Expr, rightMin: Expr, rightMax: Expr)
     {
         super();
         this.left = left;
@@ -152,9 +154,9 @@ export class Parser
      *
      * @param string sql
      *
-     * @return array
+     * @return string
      */
-    public parse(sql)
+    public parse(sql: string) : string
     {
         this.lex = new Lexer(sql);
 
@@ -164,7 +166,7 @@ export class Parser
         if(this.tok.id == TOK_DELETE)
             return this.parseDelete();
 
-        // TODO
+        throw new ParserException(`Unexpected token "${this.tok.lexeme}"`);
     }
 
     /**
@@ -176,9 +178,9 @@ export class Parser
     {
         this.tok = this.lex.getToken();
 
-        console.log('NEXT: ')
-        console.log(this.tok);
-        
+        // TODO: console.log('NEXT: ')
+        // TODO: console.log(this.tok);
+
         return this.tok;
     }
 
@@ -187,13 +189,13 @@ export class Parser
         let x = this.tok;
         if(this.tok.id != t)
         {
-            throw "Expected \'" + stringifyTokenId(t) + "\', but found \'" + this.tok.lexeme + "\'";
+            throw new ParserException("Expected \'" + stringifyTokenId(t) + "\', but found \'" + this.tok.lexeme + "\'");
         }
         this.next();
         return x;
     }
 
-    private parseSelect()
+    private parseSelect() : string
     {
         let fields: FieldInfo[] = [];
         let fromParts: FromPart[] = [];
@@ -234,7 +236,7 @@ export class Parser
             {
                 fields.push(new FieldInfo(tableAlias, '*'));
             }
-            
+
             if(this.tok.id == ',')
                 this.next();
             else
@@ -247,14 +249,13 @@ export class Parser
         this.match(TOK_FROM);
         while(this.tok.id != TOK_EOF)
         {
-
-            let entity = this.nextIdentifier();
-            let alias = this.nextIdentifier();
+            const entity = this.nextIdentifier();
+            const alias = this.nextIdentifier();
 
             // TODO: check if entity exists
 
             fromParts.push(new FromPart(entity, alias));
-            
+
             if(this.tok.id == ',')
                 this.next();
             else
@@ -270,15 +271,16 @@ export class Parser
             whereExpr = this.expr();
         }
 
-        console.log(fields);
-        console.log(fromParts);
+        // TODO: console.log(fields);
+        // TODO: console.log(fromParts);
+        // TODO: console.log(whereExpr);
+        // TODO: process.exit();
 
         return this.generateSelectSQL(fields, fromParts, whereExpr);
     }
 
-    private parseDelete()
+    private parseDelete() : string
     {
-
         // Skip 'DELETE'
         this.next();
 
@@ -297,13 +299,18 @@ export class Parser
             this.next();
             whereExpr = this.expr();
         }
-        
+
         return this.generateDeleteSQL([fromPart], whereExpr);
     }
 
-    private expr()
+    private expr() : Expr
     {
-        return this.expr_l_or();
+        const e = this.expr_l_or();
+        if(this.tok.isOperator())
+        {
+            throw new ParserException(`Unexpected token ${this.tok.lexeme}`);
+        }
+        return e;
     }
 
     private term() : Expr
@@ -314,7 +321,7 @@ export class Parser
             case TOK_LEXEME:
                 {
                     let s = '';
-                    
+
                     s += this.nextIdentifier();
                     s += this.match('.').lexeme;
                     s += this.nextIdentifier();
@@ -333,6 +340,8 @@ export class Parser
                     this.next();
                 }
                 break;
+            default:
+                throw new ParserException(`Unexpected token ${this.tok.lexeme}`);
         }
 
         return e;
@@ -419,9 +428,9 @@ export class Parser
     private expr_comparison() : Expr
     {
         let e = this.expr_or();
-        while(this.tok.id === '<'
+        while(this.tok.id === TOK_LT
             || this.tok.id === TOK_LE
-            || this.tok.id === '>'
+            || this.tok.id === TOK_GT
             || this.tok.id === TOK_GE
             || this.tok.id === TOK_EQ
             || this.tok.id === TOK_NE
@@ -498,7 +507,7 @@ export class Parser
         return e;
     }
 
-    private nextIdentifier()
+    private nextIdentifier() : string
     {
         if(this.tok.id != TOK_LEXEME)
         {
@@ -509,7 +518,7 @@ export class Parser
         return ident;
     }
 
-    private generateDeleteSQL(fromParts: FromPart[], whereExpr: Expr)
+    private generateDeleteSQL(fromParts: FromPart[], whereExpr: Expr) : string
     {
         let sql = ''
         let aliasTablesToData = {};
@@ -525,7 +534,7 @@ export class Parser
         const whereClause = this.stringifyExpr(aliasTablesToData, fromParts, whereExpr);
 
         // ...
-        //sql += `USE \`${this.config.dbname}\`;`;
+        // TODO: sql += `USE \`${this.config.dbname}\`;`;
         sql += 'DELETE';
         if(fromClauses.length > 0)
         {
@@ -537,12 +546,13 @@ export class Parser
                     froms.push(value2);
                 });
             });
-            
+
             sql += " FROM ";
             sql += froms.join(",");
 
             sql += " USING " + fromClauses.join(', ');
         }
+
         if(whereClause != null)
         {
             sql += " WHERE " + whereClause;
@@ -552,7 +562,7 @@ export class Parser
         return sql;
     }
 
-    private generateSelectSQL(fields: FieldInfo[], fromParts: FromPart[], whereExpr: Expr)
+    private generateSelectSQL(fields: FieldInfo[], fromParts: FromPart[], whereExpr: Expr) : string
     {
         let sql = '';
 
@@ -582,7 +592,7 @@ export class Parser
                         fieldNameAs,
                         fieldNameOriginal,
                     } = this.getFieldData(aliasTablesToData, fromAlias, entityDefinition, fieldName);
-    
+
                     fieldsToSelect.push(`${subAlias}.${fieldNameOriginal} as ${fieldNameAs}`);
                 }
                 for(const fieldName in this.config.getEntityFields(entityDefinition))
@@ -592,7 +602,7 @@ export class Parser
                         fieldNameAs,
                         fieldNameOriginal,
                     } = this.getFieldData(aliasTablesToData, fromAlias, entityDefinition, fieldName);
-    
+
                     fieldsToSelect.push(`${subAlias}.${fieldNameOriginal} as ${fieldNameAs}`);
                 }
                 for(const fieldName in this.config.getEntityManyToOneFields(entityDefinition))
@@ -639,19 +649,19 @@ export class Parser
 
     private makeFromClauses(aliasTablesToData, fromParts: FromPart[])
     {
+        const cfg = this.config;
         let lastSubAliasId = 1;
         let fromClauses = [];
-        let dbName = this.config.dbname;
 
         if(fromParts.length > 0)
         {
             fromParts.forEach((from) =>
             {
-                let entityDefinition = this.config.getEntityDefinition(from.entityName);
+                let entityDefinition = cfg.getEntityDefinition(from.entityName);
                 let tableName = entityDefinition.tableName;
                 let mainSubAlias = 't' + lastSubAliasId++;
-                let fromClause = `\`${dbName}\`.\`${tableName}\` ${mainSubAlias}`;
-                
+                let fromClause = `${cfg.wrapTableName(tableName)} ${mainSubAlias}`;
+
                 aliasTablesToData[from.alias] = {};
                 aliasTablesToData[from.alias][tableName] = mainSubAlias;
 
@@ -662,7 +672,7 @@ export class Parser
                         //
                         // Get ids
                         //
-                        let ids = this.config.getEntityIds(ed);
+                        let ids = cfg.getEntityIds(ed);
 
                         //
                         // ...
@@ -672,8 +682,8 @@ export class Parser
                         {
                             let first = true;
                             let joinSubAlias = 't' + lastSubAliasId++;
-                            
-                            fromClause += ` INNER JOIN \`${dbName}\`.\`${ed.tableName}\` ${joinSubAlias} ON `;
+
+                            fromClause += ` INNER JOIN ${cfg.wrapTableName(ed.tableName)} ${joinSubAlias} ON `;
                             aliasTablesToData[from.alias][ed.tableName] = joinSubAlias;
 
                             for(const idName in ids)
@@ -681,7 +691,7 @@ export class Parser
                                 if(!first)
                                     fromClause += " AND ";
                                 first = false;
-                                fromClause += `${mainSubAlias}.\`${idName}\` = ${joinSubAlias}.\`${idName}\``;
+                                fromClause += `${mainSubAlias}.${cfg.wrapFieldName(idName)} = ${joinSubAlias}.${cfg.wrapFieldName(idName)}`;
                             }
                             ed = ed.extends;
                         }
@@ -695,7 +705,7 @@ export class Parser
         return fromClauses;
     }
 
-    private makeWhereClause(aliasTablesToData, fromParts: FromPart[], whereExpr: Expr)
+    private makeWhereClause(aliasTablesToData, fromParts: FromPart[], whereExpr: Expr) : string
     {
         if(whereExpr != null)
         {
@@ -710,9 +720,8 @@ export class Parser
 
         if(expr instanceof FieldExpr)
         {
-
             let parts = expr.field.split('.');
-            
+
             const fromAlias = parts[0];
             const fieldName = parts[1];
             const entityDefinition = this.findEntityDefinitionFromAlias(fromParts, fromAlias);
@@ -753,8 +762,8 @@ export class Parser
                 case TOK_EQ:        s += " = ";             break;
                 case TOK_AND:       s += " & ";             break;
                 case TOK_OR:        s += " | ";             break;
-                case TOK_L_AND:     s += " && ";            break;
-                case TOK_L_OR:      s += " || ";            break;
+                case TOK_L_AND:     s += " AND ";           break;
+                case TOK_L_OR:      s += " OR ";            break;
                 case TOK_LIKE:      s += " LIKE ";          break;
                 default:
                     // TODO
@@ -777,7 +786,7 @@ export class Parser
         return s;
     }
 
-    private getFieldData(aliasTablesToData, fromAlias, entityDefinition: OrmEntityDefinition, fieldName)
+    private getFieldData(aliasTablesToData, fromAlias: string, entityDefinition: OrmEntityDefinition, fieldName: string)
     {
         let fieldNameParts = fieldName.split(" as ");
         let fieldNameAs = (fieldNameParts.length == 2) ? fieldNameParts[1] : fieldName;
@@ -792,7 +801,7 @@ export class Parser
         }
     }
 
-    private getFieldDataManyToOne(aliasTablesToData, fromAlias, entityDefinition: OrmEntityDefinition, fieldName)
+    private getFieldDataManyToOne(aliasTablesToData, fromAlias: string, entityDefinition: OrmEntityDefinition, fieldName: string)
     {
         let fieldNameParts = fieldName.split(" as ");
         let fieldNameAs = (fieldNameParts.length == 2) ? fieldNameParts[1] : fieldName;
@@ -807,7 +816,7 @@ export class Parser
         }
     }
 
-    private findEntityDefinitionFromAlias(fromParts: FromPart[], fromAlias)
+    private findEntityDefinitionFromAlias(fromParts: FromPart[], fromAlias: string) : OrmEntityDefinition
     {
         let from = fromParts.find((from) =>
         {
@@ -817,7 +826,7 @@ export class Parser
         {
             // TODO
         }
-        
+
         let entityDefinition = this.config.getEntityDefinition(from.entityName);
 
         return entityDefinition;

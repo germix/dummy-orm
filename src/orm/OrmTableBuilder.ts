@@ -1,29 +1,30 @@
+import { OrmConfig } from "./OrmConfig";
 import { OrmTableFieldType } from "./types/OrmTableFieldType";
 
 export class OrmTableBuilder
 {
-    private name;
-    private dbname;
+    private config: OrmConfig;
+    private tableName: string;
     private allFields: OrmTableFieldType[] = [];
 
-    constructor(dbname)
+    constructor(config: OrmConfig)
     {
-        this.dbname = dbname;
+        this.config = config;
     }
 
-    public setName(name)
+    public setName(name: string)
     {
-        this.name = name;
+        this.tableName = name;
     }
 
-    public addField(field)
+    public addField(field: OrmTableFieldType)
     {
         this.allFields.push(field);
     }
 
     public toSqlString()
     {
-        let sql = `CREATE TABLE IF NOT EXISTS \`${this.dbname}\`.\`${this.name}\`(`;
+        let sql = `CREATE TABLE IF NOT EXISTS ${this.config.wrapTableName(this.tableName)} (`;
         let first = true;
         let hasPrimaryKeys = false;
 
@@ -40,7 +41,7 @@ export class OrmTableBuilder
                 hasPrimaryKeys = true;
             }
 
-            sql += field.toString();
+            sql += field.toString(this.config);
         });
 
         //
@@ -62,7 +63,7 @@ export class OrmTableBuilder
             }
         });
 
-        sql += ") ENGINE = InnoDB DEFAULT CHARACTER SET = utf8 COLLATE = utf8_bin;";
+        sql += ");";
 
         return sql;
     }
@@ -80,7 +81,7 @@ export class OrmTableBuilder
                 first = false;
                 let fieldName = field.getName();
 
-                sql += `\`${fieldName}\``;
+                sql += this.config.wrapFieldName(fieldName);
             }
         });
         sql += ")";
@@ -96,6 +97,10 @@ export class OrmTableBuilder
         {
             foreignColumn = column;
         }
-        return `FOREIGN KEY (\`${column}\`) REFERENCES \`${foreignTable}\`(\`${foreignColumn}\`)`;
+        column = this.config.wrapFieldName(column);
+        foreignTable = this.config.wrapTableName(foreignTable);
+        foreignColumn = this.config.wrapFieldName(foreignColumn);
+
+        return `FOREIGN KEY (${column}) REFERENCES ${foreignTable}(${foreignColumn})`;
     }
 }

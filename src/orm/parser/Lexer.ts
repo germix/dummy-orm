@@ -1,31 +1,32 @@
-import { Token, TOK_AND, TOK_BETWEEN, TOK_DELETE, TOK_EOF, TOK_EQ, TOK_FROM, TOK_GE, TOK_LE, TOK_LEXEME, TOK_LIKE, TOK_L_AND, TOK_L_OR, TOK_NE, TOK_NOT, TOK_NUMERIC, TOK_OR, TOK_SELECT, TOK_SHL, TOK_SHR, TOK_STRING, TOK_WHERE } from "./Token";
+import { ParserException } from "./ParserException";
+import { Token, TOK_BETWEEN, TOK_DELETE, TOK_EOF, TOK_EQ, TOK_FROM, TOK_GE, TOK_LE, TOK_LEXEME, TOK_LIKE, TOK_L_AND, TOK_L_OR, TOK_NE, TOK_NOT, TOK_NUMERIC, TOK_SELECT, TOK_SHL, TOK_SHR, TOK_STRING, TOK_WHERE, TOK_ASSIGN } from "./Token";
 
-function isSpace(c)
+function isSpace(c: string): boolean
 {
     return (/^\s$/).test(c);
 }
 
-function isAlnum(c)
+function isAlnum(c: string): boolean
 {
     return /^[a-zA-Z0-9]+$/i.test(c);
 }
 
-function isAlpha(c)
+function isAlpha(c: string): boolean
 {
     return /^[a-zA-Z]+$/i.test(c);
 }
 
-function isDigit(c)
+function isDigit(c: string): boolean
 {
     return /^[0-9]+$/i.test(c);
 }
 
 export class Lexer
 {
-    private in;
-    private line;
-    private cache;
-    private eof;
+    private in: string;
+    private line: number;
+    private cache: string;
+    private eof: boolean;
 
     /**
      * Constructor
@@ -33,7 +34,7 @@ export class Lexer
      *
      * @param string string Cadena
      */
-    constructor(string)
+    constructor(string: string)
     {
         this.in = string;           // String de análisis
         this.line = 0;              // Línea actual durante el análisis
@@ -46,7 +47,7 @@ export class Lexer
      *
      * @return Token Token
      */
-    public getToken()
+    public getToken(): Token
     {
         let c;
         let s;
@@ -73,7 +74,7 @@ export class Lexer
             else if(isDigit(c))
             {
                 s = c;
-                
+
                 while(true)
                 {
                     c = this.read();
@@ -131,7 +132,7 @@ export class Lexer
                 }
                 if(c === null)
                 {
-                    throw "Unterminated literal string";
+                    throw new ParserException("Unterminated literal string");
                 }
 
                 return new Token(TOK_STRING, this.line, lexeme);
@@ -182,7 +183,7 @@ export class Lexer
                     return new Token(TOK_EQ, this.line, "==");
                 }
                 this.save(x);
-                return new Token(c, this.line, c);
+                return new Token(TOK_ASSIGN, this.line, c);
             }
             else if(c == '&')
             {
@@ -217,7 +218,7 @@ export class Lexer
      *
      * @return boolean true|false
      */
-    public feof()
+    public feof(): boolean
     {
         return this.eof == true;
     }
@@ -227,7 +228,7 @@ export class Lexer
      *
      * @return string Caracter
      */
-    private read()
+    private read(): string
     {
         let c;
         if(this.cache == null)
@@ -255,12 +256,12 @@ export class Lexer
      *
      * @param string c Caracter
      */
-    private save(c)
+    private save(c): void
     {
         this.cache = c;
     }
 
-    private tokenFromLexeme(lexeme: string)
+    private tokenFromLexeme(lexeme: string): string|number
     {
         const ucLexeme = lexeme.toUpperCase();
 
@@ -270,10 +271,10 @@ export class Lexer
         if(ucLexeme == "WHERE")     return TOK_WHERE;
         if(ucLexeme == "LIKE")      return TOK_LIKE;
         if(ucLexeme == "BETWEEN")   return TOK_BETWEEN;
-        if(ucLexeme == "AND")       return TOK_AND;
-        if(ucLexeme == "OR")        return TOK_OR;
+        if(ucLexeme == "AND")       return TOK_L_AND;
+        if(ucLexeme == "OR")        return TOK_L_OR;
         if(ucLexeme == "NOT")       return TOK_NOT;
-        
+
         return TOK_LEXEME;
     }
 };

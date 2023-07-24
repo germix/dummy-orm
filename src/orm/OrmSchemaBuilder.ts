@@ -30,35 +30,35 @@ export class OrmSchemaBuilder
         this.config = config;
     }
 
+    /**
+     * Drop schema
+     */
     public async drop()
     {
-        return new Promise((done, reject) =>
-        {
-            this.config.con.query(`DROP DATABASE IF EXISTS \`${this.config.dbname}\``, () =>
-            {
-                done(undefined);
-            });
-        });
+        await this.config.con.drop();
     }
 
-    public async build()
+    /**
+     * Create schema
+     */
+    public async create()
     {
-        return new Promise((done) =>
-        {
-            this.config.con.query(`CREATE DATABASE \`${this.config.dbname}\``, () =>
-            {
-                done(undefined);
-            });
-        })
-        .then(() =>
-        {
-            return new Promise(async (done) =>
+        await this.config.con.create();
+    }
+
+    /**
+     * Generate schema
+     */
+    public async generate() : Promise<void>
+    {
+        return this.config.con.connect()
+            .then(async () =>
             {
                 for await(const entity of this.config.entities)
                 {
                     let entityName = entity.name;
                     let ed = this.config.getEntityDefinition(entityName);
-                    let builder = new OrmTableBuilder(this.config.dbname);
+                    let builder = new OrmTableBuilder(this.config);
 
                     //
                     // Table name
@@ -89,17 +89,13 @@ export class OrmSchemaBuilder
                     this.generateFields(builder, ed);
 
                     // Execute query
-                    await new Promise((done) =>
-                    {
-                        this.config.con.query(builder.toSqlString(), () =>
-                        {
-                            done(undefined);
-                        });
-                    });
+                    await this.config.con.query(builder.toSqlString());
                 }
-                done(undefined);
             })
-        })
+            .finally(async () =>
+            {
+                await this.config.con.disconnect();
+            });
     }
 
     private getTableField(name, data, ref?) : OrmTableFieldType
@@ -211,7 +207,9 @@ export class OrmSchemaBuilder
 
     private generateFields(builder: OrmTableBuilder, ed: OrmEntityDefinition)
     {
+        //
         // Normal fields
+        //
         for(const fieldName in ed.ormFields)
         {
             let field = this.getTableField(fieldName, ed.ormFields[fieldName]);
@@ -219,7 +217,9 @@ export class OrmSchemaBuilder
             builder.addField(field);
         }
 
+        //
         // ManyToOne fields
+        //
         for(const fieldName in ed.ormManyToOne)
         {
             let params = ed.ormManyToOne[fieldName];
@@ -234,7 +234,7 @@ export class OrmSchemaBuilder
                     makeReferenceFieldId(fieldName, idFieldName),
                     idFieldData,
                     true);
-                
+
                 if(params.nullable)
                 {
                     field.setNullable(true);

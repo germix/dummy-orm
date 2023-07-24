@@ -1,9 +1,10 @@
+import { OrmEntityInterface } from "./OrmEntityInterface";
 
 export function OrmOnPostInsert()
 {
-    return function(target, name, descriptor: PropertyDescriptor)
+    return function(target, name: string, descriptor: PropertyDescriptor)
     {
-        target.ormOnPostInsert = function()
+        (target as OrmEntityInterface).ormOnPostInsert = function()
         {
             descriptor.value();
         }

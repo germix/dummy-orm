@@ -1,3 +1,4 @@
+
 export type FieldType =
       'text'
     | 'string'
@@ -23,5 +24,8 @@ export interface Constructable<T>
 
 export declare type EntityClass<T extends Partial<T>> = Function & Constructable<T> &
 {
+    name: string;
     prototype: T;
 };
+
+export declare type ConfigDriverType = 'dummy'|'mysql'|'mariadb'|'postgresql';

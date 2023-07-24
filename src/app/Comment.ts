@@ -14,7 +14,7 @@ import { User } from "./User";
 export class Comment extends Objekt
 {
     @OrmEntityFieldAsString()
-    message;
+    message: string;
 
     @OrmEntityFieldAsManyToOne({
         target: User,

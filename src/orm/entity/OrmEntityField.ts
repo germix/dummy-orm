@@ -1,6 +1,7 @@
-import { BgMagenta, Reset } from "../../bash";
+import { logOrmField } from "../../testing/log";
 import { entityDefinitions } from "../OrmConfig";
 import { makeGetMethod } from "../utils";
+import { OrmEntityDefinition } from "./OrmEntityDefinition";
 import { OrmEntityFieldParams } from "./OrmEntityFieldParams";
 
 export function OrmEntityField(params?: OrmEntityFieldParams|object)
@@ -8,12 +9,12 @@ export function OrmEntityField(params?: OrmEntityFieldParams|object)
     return function(target, fieldName)
     {
         let entityName = target.constructor.name;
-        
-        console.log(BgMagenta + "[ORM FIELD]:" + Reset + " " + entityName + '.' + fieldName);
+
+        logOrmField(entityName + "." + fieldName);
 
         if(entityDefinitions[entityName] === undefined)
         {
-            entityDefinitions[entityName] = {};
+            entityDefinitions[entityName] = {} as OrmEntityDefinition;
         }
         if(entityDefinitions[entityName].ormFields === undefined)
         {

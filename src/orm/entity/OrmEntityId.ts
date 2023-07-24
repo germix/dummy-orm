@@ -1,5 +1,6 @@
 import { entityDefinitions } from "../OrmConfig";
 import { makeGetMethod } from "../utils";
+import { OrmEntityDefinition } from "./OrmEntityDefinition";
 
 export function OrmEntityId(params?)
 {
@@ -9,7 +10,7 @@ export function OrmEntityId(params?)
 
         if(entityDefinitions[entityName] === undefined)
         {
-            entityDefinitions[entityName] = {};
+            entityDefinitions[entityName] = {} as OrmEntityDefinition;
         }
         if(entityDefinitions[entityName].ormIds === undefined)
         {

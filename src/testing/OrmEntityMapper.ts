@@ -12,37 +12,21 @@ export class OrmEntityMapper
         this.config = cfg;
     }
 
-    map<T>(entityClass, result, done)
+    public map<T>(entityClass, result: any[]): T[]
     {
-        let resultEntities: T[] = [];
-        /*
-        //
-        // Map rows to entities
-        //
-        result.forEach((row) =>
-        {
-            let entity = new entityClass();
+        const resultEntities: T[] = [];
 
-            for(const columnName in row)
-            {
-                entity[columnName] = row[columnName];
-            }
-
-            resultEntities.push(entity);
-        });
-        */
-        
-        let ed = this.config.getEntityDefinition(entityClass);
-        let ids = this.config.getEntityIds(ed);
-        let normalFields = this.config.getEntityFields(ed);
-        let manyToOneFields = this.config.getEntityManyToOneFields(ed);
+        const ed = this.config.getEntityDefinition(entityClass);
+        const ids = this.config.getEntityIds(ed);
+        const normalFields = this.config.getEntityFields(ed);
+        const manyToOneFields = this.config.getEntityManyToOneFields(ed);
 
         //
         // Map rows to entities
         //
         result.forEach((row) =>
         {
-            let entity = isString(entityClass) ? new (this.config.findClass(entityClass))() : new entityClass();
+            const entity = isString(entityClass) ? new (this.config.findClass(entityClass))() : new entityClass();
 
             for(const idName in ids)
             {
@@ -54,9 +38,9 @@ export class OrmEntityMapper
             }
             for(const fieldName in manyToOneFields)
             {
-                let target = manyToOneFields[fieldName].target;
-                let targetEd = this.config.getEntityDefinition(target);
-                let targetIds = this.config.getEntityIds(targetEd);
+                const target = manyToOneFields[fieldName].target;
+                const targetEd = this.config.getEntityDefinition(target);
+                const targetIds = this.config.getEntityIds(targetEd);
 
                 for(const targetId in targetIds)
                 {
@@ -71,6 +55,6 @@ export class OrmEntityMapper
         });
 
         // Done
-        done(resultEntities);
+        return resultEntities;
     }
 }

@@ -1,7 +1,8 @@
-import { BgCyan, Reset } from "../../bash";
+import { logOrmExtends } from "../../testing/log";
 import { entityDefinitions } from "../OrmConfig";
 import { OrmException } from "../OrmException";
 import { camelcaseToUnderscore } from "../utils";
+import { OrmEntityDefinition } from "./OrmEntityDefinition";
 
 export function OrmExtends({base, discriminatorValue}:
 {
@@ -14,7 +15,7 @@ export function OrmExtends({base, discriminatorValue}:
         let baseName = base.name;
         let entityName = target.name;
 
-        console.log(BgCyan + "[ORM EXTENDS]:" + Reset + " " + entityName + ' extends ' + baseName);
+        logOrmExtends(entityName + ' extends ' + baseName);
 
         if(entityName == baseName)
         {
@@ -23,7 +24,7 @@ export function OrmExtends({base, discriminatorValue}:
 
         if(entityDefinitions[entityName] === undefined)
         {
-            entityDefinitions[entityName] = {};
+            entityDefinitions[entityName] = {} as OrmEntityDefinition;
         }
         if(entityDefinitions[entityName].extends === undefined)
         {

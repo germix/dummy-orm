@@ -1,24 +1,23 @@
 import { entityDefinitions } from "../OrmConfig";
 import { makeGetMethod } from "../utils";
+import { OrmEntityDefinition } from "./OrmEntityDefinition";
 
-export class Collection<T>
+interface Params
 {
-    async load()
-    {
-    }
+    entity: string;
+
+    mappedBy: string;
 }
 
-export function OrmEntityFieldAsOneToMany(params?)
+export function OrmEntityFieldAsOneToMany(params?: Params)
 {
     return function(target, fieldName)
     {
         let entityName = target.constructor.name;
-        console.log(target)
-        console.log(fieldName)
 
         if(entityDefinitions[entityName] === undefined)
         {
-            entityDefinitions[entityName] = {};
+            entityDefinitions[entityName] = {} as OrmEntityDefinition;
         }
         if(entityDefinitions[entityName].ormOneToMany === undefined)
         {

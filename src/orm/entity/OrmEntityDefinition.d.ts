@@ -1,3 +1,18 @@
+export type OrmOneToManyData =
+{
+    entity: string;
+    mappedBy: string;
+};
+
+export type OrmOneToManyDataMap = {[key: string]: OrmOneToManyData};
+
+export type OrmManyToOneData =
+{
+    target?;
+    nullable?: boolean;
+};
+
+export type OrmManyToOneDataMap = {[key: string]: OrmManyToOneData};
 
 export interface OrmEntityDefinition
 {
@@ -14,40 +29,40 @@ export interface OrmEntityDefinition
     /**
      * Entity ids
      */
-    ormIds: [];
+    ormIds?: {[key: string]: any};
 
     /**
      * Entity fields
      */
-    ormFields: [];
+    ormFields?: {[key: string]: any};
 
     /**
      * Entity fields (OneToMany)
      */
-    ormOneToMany: [];
+    ormOneToMany?: OrmOneToManyDataMap;
 
     /**
      * Entity fields (ManyToOne)
      */
-    ormManyToOne: any[];
+    ormManyToOne?: OrmManyToOneDataMap;
 
     /**
      * Entity that extends
      */
-    extends;
+    extends?: OrmEntityDefinition;
 
     /**
      * Indicates if the entity is an abstract entity
      */
-    isAbstract?;
+    isAbstract?: boolean;
 
     /**
      * Discriminator value
      */
-     discriminatorValue?;
-    
+     discriminatorValue?: string;
+
     /**
      * Discriminator column
      */
-    discriminatorColumn?;
+    discriminatorColumn?: string;
 }

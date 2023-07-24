@@ -11,5 +11,5 @@ import { Objekt } from "./Objekt";
 export class Playlist extends Objekt
 {
     @OrmEntityFieldAsString()
-    title;
+    title: string;
 }

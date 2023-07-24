@@ -1,6 +1,7 @@
+import { User } from "../app/User";
 import { OrmConfig } from "../orm/OrmConfig";
 import { OrmManager } from "../orm/OrmManager";
-import { Box, Customer, Employee, User } from "./entity/Test";
+import { Box, Customer, Employee } from "./entity/Test";
 
 export async function test_0(cfg: OrmConfig)
 {
@@ -40,7 +41,7 @@ export async function test_0(cfg: OrmConfig)
         user.id = 'u2';
         await omgr.deleteAndFlush(user);
     }
-    
+
     let box = new Box();
     box.id = 'box1';
     box.type = 'box';

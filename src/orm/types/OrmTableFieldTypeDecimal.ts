@@ -1,36 +1,37 @@
+import { ConfigDriverType } from "../types";
 import { OrmTableFieldType } from "./OrmTableFieldType";
 
 export class OrmTableFieldTypeDecimal extends OrmTableFieldType
 {
-    private precision = 10;
-    private scale = 0;
+    private precision: number = 10;
+    private scale: number = 0;
 
-    constructor(name)
+    constructor(name: string)
     {
         super(name);
     }
 
-    public getPrecision()
+    public getPrecision(): number
     {
-        this.precision;
+        return this.precision;
     }
 
-    public setPrecision(precision)
+    public setPrecision(precision: number): void
     {
         this.precision = precision;
     }
 
-    public getScale()
+    public getScale(): number
     {
-        this.scale;
+        return this.scale;
     }
 
-    public setScale(scale)
+    public setScale(scale: number): void
     {
         this.scale = scale;
     }
 
-    public getColumnType()
+    public getColumnType(driverType: ConfigDriverType): string
     {
         return `DECIMAL(${this.precision},${this.scale})`;
     }

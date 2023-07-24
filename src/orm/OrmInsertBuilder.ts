@@ -1,64 +1,73 @@
 import { OrmConfig } from "./OrmConfig";
+import { OrmException } from "./OrmException";
 
 export class OrmInsertBuilder
 {
     private config: OrmConfig;
-    private tableName;
+    private tableName: string;
 
-    private fields = [];
+    private fields: {[key: string]: string} = {};
 
-    constructor(config: OrmConfig, tableName)
+    constructor(config: OrmConfig, tableName: string)
     {
         this.config = config;
         this.tableName = tableName;
     }
 
-    public add(field, value)
+    public add(field: string, value: string)
     {
         this.fields[field] = value;
         return this;
     }
 
-    public flush()
+    public async flush(): Promise<void>
     {
-        this.config.con.query(this.getSqlQuery());
+        await this.config.con.query(this.getSqlQuery());
     }
 
     public getSqlQuery()
     {
-        let sql = `INSERT INTO \`${this.config.dbname}\`.\`${this.tableName}\` (`;
-        let first = true;
+        const cfg = this.config;
+        const driverType = this.config.getDriverType();
+        const columnNames: string[] = [];
+        const columnValues: string[] = [];
 
+        let sql = `INSERT INTO ${cfg.wrapTableName(this.tableName)}`;
         for(const key in this.fields)
         {
-            if(!first)
-                sql += ',';
-            first = false;
-            sql += `\`${key}\``;
+            columnNames.push(cfg.wrapFieldName(key));
         }
-        first = true;
-        sql += ') VALUES(';
         for(const key in this.fields)
         {
-            let value: string = this.fields[key];
-            if(!first)
-                sql += ',';
-            first = false;
+            const value = this.fields[key];
             if(value === undefined)
             {
-                throw `Field value is undefined (field=${key})`;
+                throw new OrmException(`Field value is undefined (field=${key})`);
             }
             else if(value === null)
             {
-                sql += 'null';
+                columnValues.push("NULL");
             }
             else
             {
-                value = value.toString().replace("'", "\'");
-                sql += `'${value}'`;
+                columnValues.push(`'${value.toString().replace("'", "\'")}'`)
             }
         }
-        sql += ');';
+        if(columnNames.length === 0)
+        {
+            sql += " VALUES(DEFAULT)";
+        }
+        else
+        {
+            sql += `(${columnNames.join(",")}) VALUES(${columnValues.join(",")})`;
+        }
+
+        if(driverType == 'postgresql')
+        {
+            sql += " RETURNING id"
+        }
+
+        sql += ';';
 
         return sql;
     }

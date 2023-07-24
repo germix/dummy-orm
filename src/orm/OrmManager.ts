@@ -1,13 +1,13 @@
-import { BgRed, Reset } from "../bash";
 import { OrmEntityMapper } from "../testing/OrmEntityMapper";
 import { OrmConnection } from "./connection/OrmConnection";
 import { OrmEntityDefinition } from "./entity/OrmEntityDefinition";
-import { entityDefinitions, OrmConfig } from "./OrmConfig";
+import { OrmOneToManyCollection } from "./entity/OrmOneToManyCollection";
+import { OrmConfig } from "./OrmConfig";
 import { OrmInsertBuilder } from "./OrmInsertBuilder";
 import { OrmReference } from "./OrmReference";
+import { OrmUpdateBuilder } from "./OrmUpdateBuilder";
 import { EntityClass } from "./types";
 import { camelcaseToUnderscore, getEntityFieldValue, makeReferenceFieldId } from "./utils";
-import isString from "./utils/isString";
 
 function isEmptyObject(obj)
 {
@@ -29,14 +29,16 @@ export class OrmManager
 
     public async findBy<T>(entityClass: EntityClass<T>|string, criteria) : Promise<T[]>
     {
-        let ed = this.config.getEntityDefinition(isString(entityClass) ? entityClass : entityClass.name);
+        const cfg = this.config;
+        const entityName = (typeof entityClass === 'string') ? entityClass : entityClass.name;
+        let ed = this.config.getEntityDefinition(entityName);
         let entityDefinition = ed;
 
         //
         // Select
         //
         let sql = "SELECT ";
-        let dbName = this.config.dbname;
+        // TODO: let dbName = this.config.dbname;
         let tableName = ed.tableName;
 
         if(ed.extends === undefined)
@@ -50,14 +52,14 @@ export class OrmManager
             {
                 for(const fieldName in ed.ormFields)
                 {
-                    fieldsToSelect.push(`\`${fieldName}\``);
+                    fieldsToSelect.push(cfg.wrapFieldName(fieldName));
                 }
                 for(const fieldName in ed.ormManyToOne)
                 {
-                    const edTarget = this.config.getEntityDefinition(ed.ormManyToOne[fieldName].target);
+                    const edTarget = cfg.getEntityDefinition(ed.ormManyToOne[fieldName].target);
                     Object.entries(this.config.getEntityIds(edTarget)).forEach(([idFieldName, idFieldData]) =>
                     {
-                        fieldsToSelect.push(`\`${makeReferenceFieldId(fieldName, idFieldName)}\``);
+                        fieldsToSelect.push(cfg.wrapFieldName(makeReferenceFieldId(fieldName, idFieldName)));
                     });
                 }
                 if(ed.extends !== undefined)
@@ -68,7 +70,7 @@ export class OrmManager
                 {
                     for(const idName in ed.ormIds)
                     {
-                        fieldsToSelect.push(`\`${ed.tableName}\`.\`${idName}\` as \`${idName}\``);
+                        fieldsToSelect.push(`${cfg.wrapTableName(ed.tableName)}.${cfg.wrapFieldName(idName)} as ${cfg.wrapFieldName(idName)}`);
                     }
                     ed = null;
                 }
@@ -81,7 +83,8 @@ export class OrmManager
         //
         // From
         //
-        sql += ` FROM \`${dbName}\`.\`${tableName}\``;
+        // TODO: sql += ` FROM \`${dbName}\`.\`${tableName}\``;
+        sql += ` FROM ${cfg.wrapTableName(tableName)}`;
 
         //
         // Inner join
@@ -100,14 +103,16 @@ export class OrmManager
             ed = ed.extends;
             do
             {
-                sql += ` INNER JOIN \`${dbName}\`.\`${ed.tableName}\` ON `;
+                // TODO: sql += ` INNER JOIN \`${dbName}\`.\`${ed.tableName}\` ON `;
+                sql += ` INNER JOIN ${cfg.wrapTableName(ed.tableName)} ON `;
                 let first = true;
                 for(const idName in ids)
                 {
                     if(!first)
                         sql += " AND ";
                     first = false;
-                    sql += `\`${dbName}\`.\`${ed.tableName}\`.\`${idName}\` = \`${dbName}\`.\`${tableName}\`.\`${idName}\``;
+                    // TODO: sql += `\`${dbName}\`.\`${ed.tableName}\`.\`${idName}\` = \`${dbName}\`.\`${tableName}\`.\`${idName}\``;
+                    sql += `${cfg.wrapTableName(ed.tableName)}.${cfg.wrapFieldName(idName)} = ${cfg.wrapTableName(tableName)}.${cfg.wrapFieldName(idName)}`;
                 }
                 ed = ed.extends;
             }
@@ -130,34 +135,24 @@ export class OrmManager
                 first = false;
                 const underscoreColumnName = camelcaseToUnderscore(columnName);
                 if(columnValue === null)
-                    sql += `\`${underscoreColumnName}\` = NULL`;
+                    sql += `${cfg.wrapFieldName(underscoreColumnName)} = NULL`;
                 else
-                    sql += `\`${underscoreColumnName}\` = '${columnValue}'`;
+                    sql += `${cfg.wrapFieldName(underscoreColumnName)} = '${columnValue}'`;
             }
         }
 
         sql += ';';
-        console.log(BgRed + "QUERY" + Reset + ": ")
-        console.log(sql)
 
         return new Promise((done, reject) =>
         {
-            let resultEntities: T[] = [];
-
             //
             // Execute
             //
-            this.config.con.query(sql, async (err, result, fields) =>
+            this.config.con.query(sql).then((result) =>
             {
-                if(err)
-                {
-                    reject(err);
-                }
-                else
-                {
-                    (new OrmEntityMapper(this.config)).map(entityClass, result, done);
-                }
-            });
+                done((new OrmEntityMapper(this.config)).map(entityClass, result.rows));
+            })
+            .catch(reject);
         })
     }
 
@@ -217,59 +212,86 @@ export class OrmManager
 
     private async deleteEntity(entity, entityName) : Promise<any>
     {
-        let ed: OrmEntityDefinition = this.config.getEntityDefinition(entityName);
-        let tableName = ed.tableName;
-
-        while(ed.extends !== undefined)
+        return new Promise<void>(async (done, reject) =>
         {
-            ed = ed.extends;
-        }
-        let sql = `DELETE FROM \`${this.config.dbname}\`.\`${tableName}\` WHERE `;
-        let first = true;
-
-        for(const idName in ed.ormIds)
-        {
-            if(!first)
-                sql += " AND ";
-            first = true;
-            let idValue = getEntityFieldValue(entity, idName);
-            if(idValue === null)
-                sql += `\`${idName}\` = null`;
-            else
-                sql += `\`${idName}\` = '${idValue}'`;
-        }
-        sql += ";";
-
-        return new Promise((done) =>
-        {
-            this.con.query(sql, () =>
+            // Get entity definitions
+            const eds = (() =>
             {
-                done(undefined);
-            });
-        });
+                let ed = this.config.getEntityDefinition(entityName);
+                const eds = [];
+                while(ed !== undefined)
+                {
+                    eds.push(ed);
+                    ed = ed.extends;
+                }
+                return eds;
+            })();
+
+            // Get entity definition ids
+            const ormIds = (() =>
+            {
+                let ed = this.config.getEntityDefinition(entityName);
+                while(ed.extends !== undefined)
+                {
+                    ed = ed.extends;
+                }
+                return ed.ormIds;
+            })();
+
+            // Remove for each table
+            for await (const ed of eds)
+            {
+                let sql = `DELETE FROM ${this.config.wrapTableName(ed.tableName)} WHERE `;
+                let first = true;
+
+                for(const idName in ormIds)
+                {
+                    if(!first)
+                        sql += " AND ";
+                    first = true;
+                    let idValue = getEntityFieldValue(entity, idName);
+                    if(idValue === null)
+                        sql += `${this.config.wrapFieldName(idName)} = null`;
+                    else
+                        sql += `${this.config.wrapFieldName(idName)} = '${idValue}'`;
+                }
+                sql += ";";
+
+                try
+                {
+                    await this.con.query(sql);
+                }
+                catch (error)
+                {
+                    reject(error);
+                }
+            }
+
+            done();
+        })
     }
 
     private async persistEntity(entity, entityName) : Promise<any>
     {
+        return (entity['id'] === undefined)
+            ? this.persistEntityInsert(entity, entityName)
+            : this.persistEntityUpdate(entity, entityName)
+            ;
+    }
+
+    private async persistEntityInsert(entity, entityName) : Promise<any>
+    {
         let ed: OrmEntityDefinition = this.config.getEntityDefinition(entityName);
-        let baseEd = entityDefinitionToBase(ed);
+        let baseEd = this.config.getEntityDefinitionBase(ed);
         let builder = (new OrmInsertBuilder(this.config, ed.tableName));
 
-        function entityDefinitionToBase(ed)
-        {
-            while(ed.extends !== undefined)
-            {
-                ed = ed.extends;
-            }
-            return ed;
-        }
-        if(entity.constructor.name == entityName)
+        if(entity.constructor.name == entityName && baseEd.discriminatorColumn)
         {
             entity[baseEd.discriminatorColumn] = ed.discriminatorValue;
         }
         if(ed.extends !== undefined)
         {
-            await this.persistEntity(entity, ed.extends.name);
+            await this.persistEntityInsert(entity, ed.extends.name);
 
             for(const columnName in baseEd.ormIds)
             {
@@ -278,7 +300,8 @@ export class OrmManager
         }
 
         // OnPreInsert
-        if(entity.ormOnPreInsert) entity.ormOnPreInsert();
+        if(entity.ormOnPreInsert)
+            entity.ormOnPreInsert();
 
         // Add insert values
         let ids = this.config.getEntityIds(ed);
@@ -301,7 +324,7 @@ export class OrmManager
             {
                 const refEd = this.config.getEntityDefinition(ed.ormManyToOne[columnName].target);
                 const refIds = this.config.getEntityIds(refEd);
-                
+
                 Object.entries(refIds).forEach(([idFieldName, idFieldData]) =>
                 {
                     builder.add(
@@ -316,26 +339,74 @@ export class OrmManager
             }
         }
 
-        // Execute
-        return new Promise((done) =>
+        //
+        // OnPreUpdate
+        //
+        if(entity.ormOnPreUpdate)
         {
-            this.con.query(builder.getSqlQuery(), (err, result, fields) =>
-            {
-                // TODO: Mejorar esto
-                if(result)
-                {
-                    if(result.insertId !== undefined && entity['id'] === undefined)
-                    {
-                        entity['id'] = result.insertId;
-                    }
-                }
+            entity.ormOnPreUpdate();
+        }
 
-                // OnPostInsert
-                if(entity.ormOnPostInsert) entity.ormOnPostInsert();
+        //
+        // Execute
+        //
+        const result = await this.con.query(builder.getSqlQuery());
+        if(result.insertId !== undefined && entity['id'] === undefined)
+        {
+            entity['id'] = result.insertId;
+        }
 
-                done(undefined);
-            });
-        })
+        //
+        // OnPostInsert
+        //
+        if(entity.ormOnPostInsert)
+        {
+            entity.ormOnPostInsert();
+        }
+
+        //
+        // Update OneToMany
+        //
+        await this.persistOrDeleteOneToMany(entity, ed);
+    }
+
+    private async persistEntityUpdate(entity, entityName) : Promise<any>
+    {
+        let ed: OrmEntityDefinition = this.config.getEntityDefinition(entityName);
+        let baseEd = this.config.getEntityDefinitionBase(ed);
+        let builder = (new OrmUpdateBuilder(this.config, ed.tableName));
+
+        // Update super classes
+        if(ed.extends !== undefined)
+        {
+            await this.persistEntityUpdate(entity, ed.extends.name);
+        }
+
+        for(const columnName in ed.ormFields)
+        {
+            builder.add(columnName, getEntityFieldValue(entity, columnName));
+        }
+
+        //
+        // Execute
+        //
+        if(ed.ormFields !== undefined)
+        {
+            await this.con.query(builder.getSqlQuery());
+        }
+
+        //
+        // OnPostUpdate
+        //
+        if(entity.ormOnPostUpdate)
+        {
+            entity.ormOnPostUpdate();
+        }
+
+        //
+        // Update OneToMany
+        //
+        await this.persistOrDeleteOneToMany(entity, ed);
     }
 
     private addInsertColumn(builder, entity, columnName, columnData)
@@ -351,6 +422,52 @@ export class OrmManager
         else
         {
             builder.add(columnName, getEntityFieldValue(entity, columnName));
+        }
+    }
+
+    private async persistOrDeleteOneToMany(entity, ed: OrmEntityDefinition): Promise<void>
+    {
+        if(ed.ormOneToMany)
+        {
+            const entityId = entity["id"];
+
+            // TODO: console.log("ed.ormOneToMany");
+            const columns = [];
+            for(const columnName in ed.ormOneToMany)
+                columns.push({ columnName: columnName, columnData: ed.ormOneToMany[columnName] })
+
+            // TODO: console.log("x", columns)
+
+            for await (const c of columns)
+            {
+                // TODO: console.log("columnName", c.columnName)
+                //const columnData = ed.ormOneToMany[columnName];
+                // TODO: console.log("columnData", c.columnData)
+                const collection = entity[c.columnName] as OrmOneToManyCollection<any>;
+                // TODO: console.log("collection", collection)
+
+                const mappedById = makeReferenceFieldId(c.columnData.mappedBy, "id")
+                const mappedEntity = this.config.getEntityDefinition(c.columnData.entity);
+
+                // TODO: console.log("mappedEntity", mappedEntity)
+                for await (const elem of collection.removedElements)
+                {
+                    if(!elem[mappedById])
+                    {
+                        await this.con.query(`UPDATE ${this.config.wrapTableName(mappedEntity.tableName)} SET ${mappedById} = NULL WHERE id = '${elem['id']}'`);
+                    }
+                }
+                collection.removedElements = [];
+
+                for await (const elem of collection.persistedElements)
+                {
+                    if(!elem[mappedById])
+                    {
+                        await this.con.query(`UPDATE ${this.config.wrapTableName(mappedEntity.tableName)} SET ${mappedById} = '${entityId}' WHERE id = '${elem['id']}'`);
+                    }
+                }
+                collection.persistedElements = [];
+            }
         }
     }
 }

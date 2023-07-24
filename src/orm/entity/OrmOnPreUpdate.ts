@@ -1,10 +1,10 @@
 import { OrmEntityInterface } from "./OrmEntityInterface";
 
-export function OrmOnPreInsert()
+export function OrmOnPreUpdate()
 {
     return function(target, name: string, descriptor: PropertyDescriptor)
     {
-        (target as OrmEntityInterface).ormOnPreInsert = function()
+        (target as OrmEntityInterface).ormOnPreUpdate = function()
         {
             descriptor.value();
         }

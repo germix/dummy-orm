@@ -1,5 +1,6 @@
 import { OrmEntity } from "../orm/entity/OrmEntity";
 import { OrmEntityFieldAsString } from "../orm/entity/OrmEntityFieldAsString";
+import { OrmEntityFieldAsText } from "../orm/entity/OrmEntityFieldAsText";
 import { OrmExtends } from "../orm/entity/OrmExtends";
 import { Objekt } from "./Objekt";
 
@@ -11,8 +12,8 @@ import { Objekt } from "./Objekt";
 export class Video extends Objekt
 {
     @OrmEntityFieldAsString()
-    title;
+    title: string;
 
-    @OrmEntityFieldAsString()
-    source;
+    @OrmEntityFieldAsText()
+    source: string;
 }

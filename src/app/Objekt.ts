@@ -8,8 +8,8 @@ import { OrmEntityIdAsIncremental } from "../orm/entity/OrmEntityIdAsIncremental
 export abstract class Objekt
 {
     @OrmEntityIdAsIncremental()
-    id;
+    id: number;
 
     @OrmEntityFieldAsString()
-    type;
+    type: string;
 }

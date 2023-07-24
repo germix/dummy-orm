@@ -1,9 +1,21 @@
 import { OrmEntityField } from "./OrmEntityField";
 
-export function OrmEntityFieldAsBoolean(params?)
+interface Params
 {
+    /**
+     * Indicates if the field is nullable
+     */
+    nullable?: boolean;
+}
+
+export function OrmEntityFieldAsBoolean(params?: Params)
+{
+    const {
+        nullable,
+    } = params || {};
+
     return OrmEntityField({
-        ...params,
         type: 'boolean',
+        nullable,
     });
 }
